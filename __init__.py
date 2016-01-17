@@ -293,7 +293,7 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
             context.scene.objects.active = lowpoly_result
             bpy.ops.object.join()
             # rename lowpoly result
-            lowpoly_result.name = groups.group_names[i_group] + groups.lowpolysuffix + ".final"
+            lowpoly_result.name = groups.group_names[i_group] + groups.lowpolysuffix
             # update scene
             context.scene.update()
             # move to group origin
@@ -318,7 +318,7 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
             context.scene.objects.active = highpoly_result
             bpy.ops.object.join()
             # rename highpoly result
-            highpoly_result.name = groups.group_names[i_group] + groups.highpolysuffix + ".final"
+            highpoly_result.name = groups.group_names[i_group] + groups.highpolysuffix
             # update scene
             context.scene.update()
             # move to group origin
