@@ -256,7 +256,7 @@ class HiloSetObjectOriginToCursor(bpy.types.Operator):
 
 class HiloCreateFinalMeshes(bpy.types.Operator):
     """Create final high- and lowpoly meshes"""
-    bl_idname = "objects.createfinalmeshes"
+    bl_idname = "objects.createfinalmesh"
     bl_label = "Hilo - Create Final Meshes"
 
     def execute(self, context):
