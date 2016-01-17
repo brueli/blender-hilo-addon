@@ -329,34 +329,6 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HiloSelectLowPolyMeshes(bpy.types.Operator):
-    """Select all low poly mesh objects"""
-    bl_idname = "objects.hiloselectlowpoly"
-    bl_label = "Select Lowpoly Objects"
-
-    def execute(self, context):
-        bpy.ops.object.select_all(action='DESELECT')
-        context.scene.objects.active = None
-        for obj in context.scene.objects:
-            if (obj.hilo_meshtype == 'lowpoly'):
-                obj.select = True 
-        return {'FINISHED'}
-
-
-class HiloSelectHighPolyMeshes(bpy.types.Operator):
-    """Select all high poly mesh objects"""
-    bl_idname = "objects.hiloselecthighpoly"
-    bl_label = "Select Highpoly Objects"
-
-    def execute(self, context):
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.scene.objects.active = None
-        for obj in context.scene.objects:
-            if (obj.hilo_meshtype == 'highpoly'):
-                obj.select = True 
-        return {'FINISHED'}
-
-
 class HiloExportLowPolyMeshes(bpy.types.Operator):
     """Export low poly mesh objects to file"""
     bl_idname = "objects.hiloexportlowpoly"
@@ -471,8 +443,6 @@ def register():
     # operators
     bpy.utils.register_class(HiloSetObjectOriginToCursor);
     bpy.utils.register_class(HiloCreateFinalMeshes);
-    bpy.utils.register_class(HiloSelectLowPolyMeshes);
-    bpy.utils.register_class(HiloSelectHighPolyMeshes);
     bpy.utils.register_class(HiloExportLowPolyMeshes);
     bpy.utils.register_class(HiloExportHighPolyMeshes);
     
@@ -484,8 +454,6 @@ def unregister():
     # operators
     bpy.utils.unregister_class(HiloSetObjectOriginToCursor);
     bpy.utils.unregister_class(HiloCreateFinalMeshes);
-    bpy.utils.unregister_class(HiloSelectLowPolyMeshes);
-    bpy.utils.unregister_class(HiloSelectHighPolyMeshes);
     bpy.utils.unregister_class(HiloExportLowPolyMeshes);
     bpy.utils.unregister_class(HiloExportHighPolyMeshes);
     
