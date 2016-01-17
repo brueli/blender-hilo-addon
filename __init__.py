@@ -4,7 +4,7 @@
 bl_info = {
 	"name": "High- and Lowpoly Mesh Tools",
 	"author": "Ramon Brülisauer",
-	"version": (0, 0, 20160116),
+	"version": (0, 0, 20160117),
 	"blender": (2, 76, 0),
 	"location": "Properties > Scene > High-/Lowpoly Mesh, Properties > Object > High-/Lowpoly Mesh",
 	"description": "Blender addon for working with high and lowpoly meshes",
@@ -51,14 +51,14 @@ bpy.types.Object.hilo_meshtype = meshtype_prop
 
 
 class HiloMeshGroups:
-    def __init__(self, object_list, groupname_pattern=None):
+    def __init__(self, objects=[], name_pattern='$group.*'):
         self.lowpolysuffix = bpy.context.scene.hilo_lowpolysuffix
         self.highpolysuffix = bpy.context.scene.hilo_highpolysuffix
-        self.groupname_pattern = groupname_pattern
+        self.groupname_pattern = name_pattern
         self.object_list = []
         self.group_names = []
         self.groups = {}
-        self.addObjects(object_list)
+        self.addObjects(objects)
     def groupPattern(self):
         if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
             self.groupname_pattern = '$group.*'
@@ -120,6 +120,8 @@ class HiloMeshGroups:
             if (group_obj.name.find(self.highpolysuffix) > -1):
                 result.append(group_obj)
         return result
+    def groupCount(self):
+        return len(self.group_names)
 
 
 
@@ -219,14 +221,14 @@ class HiloSetObjectOriginToCursor(bpy.types.Operator):
     bl_label = "Set Object Origin to 3D cursor"
 
     def execute(self, context):
-        # get context object
-        # get context object name
-        source_obj = context.object
-        source_obj_name = context.object.name
+        # get active object
+        # get active object name
+        source_obj = context.scene.objects.active
+        source_obj_name = context.scene.objects.active.name
         
         # add a new mesh at cursor position
         bpy.ops.object.add(type='MESH')
-        new_obj = bpy.context.object
+        new_obj = context.scene.objects.active
         new_mesh = new_obj.data
 
         # remove it's vertices
@@ -236,6 +238,7 @@ class HiloSetObjectOriginToCursor(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
 
         # clone modifiers
+        bpy.ops.object.select_all(action='DESELECT')
         source_obj.select = True 
         new_obj.select = True
         context.scene.objects.active = source_obj
