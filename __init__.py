@@ -329,6 +329,29 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class HiloRefreshFinalMeshes(bpy.types.Operator):
+    '''Recreate final meshes. Existing final meshes are overwritten'''
+    bl_idname = "objects.refreshfinalmesh"
+    bl_label = "Hilo - Refresh Final Meshes"
+
+    def execute(self, context):
+        # create mesh groups
+        groups = HiloMeshGroups(context.scene.objects.values())
+        # remove existing final meshes
+        for i_group in range(0, groups.groupCount()):
+            bpy.ops.object.select_all(action='DESELECT')
+            for group_name in groups.group_names:
+                if (bpy.data.objects.find(group_name + '_final_low') > -1):
+                    lowpoly_final = bpy.data.objects[group_name + '_final_low']
+                    context.scene.objects.unlink(lowpoly_final)
+                    bpy.data.objects.remove(lowpoly_final)
+                if (bpy.data.objects.find(group_name + '_final_high') > -1):
+                    highpoly_final = bpy.data.objects[group_name + '_final_high']
+                    context.scene.objects.unlink(highpoly_final)
+                    bpy.data.objects.remove(highpoly_final)
+        # recreate lowpoly meshes
+        bpy.ops.objects.createfinalmesh()
+        return {'FINISHED'}
 class HiloExportLowPolyMeshes(bpy.types.Operator):
     """Export low poly mesh objects to file"""
     bl_idname = "objects.hiloexportlowpoly"
@@ -443,6 +466,7 @@ def register():
     # operators
     bpy.utils.register_class(HiloSetObjectOriginToCursor);
     bpy.utils.register_class(HiloCreateFinalMeshes);
+    bpy.utils.register_class(HiloRefreshFinalMeshes);
     bpy.utils.register_class(HiloExportLowPolyMeshes);
     bpy.utils.register_class(HiloExportHighPolyMeshes);
     
@@ -454,6 +478,7 @@ def unregister():
     # operators
     bpy.utils.unregister_class(HiloSetObjectOriginToCursor);
     bpy.utils.unregister_class(HiloCreateFinalMeshes);
+    bpy.utils.unregister_class(HiloRefreshFinalMeshes);
     bpy.utils.unregister_class(HiloExportLowPolyMeshes);
     bpy.utils.unregister_class(HiloExportHighPolyMeshes);
     
