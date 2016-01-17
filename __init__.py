@@ -352,6 +352,61 @@ class HiloRefreshFinalMeshes(bpy.types.Operator):
         # recreate lowpoly meshes
         bpy.ops.objects.createfinalmesh()
         return {'FINISHED'}
+
+
+class HiloExportMeshes(bpy.types.Operator):
+    bl_idname = 'objects.hiloexportfinalmesh'
+    bl_label = 'Hilo - Export Final Meshes'
+
+    def execute(self, context):
+        # find mesh groups in scene
+        groups = HiloMeshGroups(context.scene.objects.values())
+
+        # select final lowpoly meshes
+        bpy.ops.object.select_all(action='DESELECT')
+        for i_group in range(0, groups.groupCount()):
+            group_name = groups.group_names[i_group]
+            lowpoly_name = group_name + context.scene.hilo_lowpolysuffix
+            if (bpy.data.objects.find(lowpoly_name) == -1):
+                self.report({'ERROR'}, 'could not find lowpoly mesh %s. Recreate meshes and try again.' % (lowpoly_name))
+                return {'FINISHED'}
+            bpy.data.objects[lowpoly_name].select = True
+
+        # export selected objects as .fbx
+        self.report({'INFO'}, "  export to .fbx file")
+        exportFilepath = bpy.path.abspath(context.scene.hilo_outputpath + context.scene.hilo_lowpolyfilename + ".fbx")
+        bpy.ops.export_scene.fbx(filepath=exportFilepath, 
+                                 check_existing=False, 
+                                 use_selection=True, 
+                                 object_types={'MESH'}, 
+                                 use_mesh_modifiers=True, 
+                                 bake_anim=False, 
+                                 batch_mode='OFF')
+
+        # select final highpoly meshes
+        bpy.ops.object.select_all(action='DESELECT')
+        for i_group in range(0, groups.groupCount()):
+            group_name = groups.group_names[i_group]
+            highpoly_name = group_name + context.scene.hilo_highpolysuffix
+            if (bpy.data.objects.find(highpoly_name) == -1):
+                self.report({'ERROR'}, 'could not find highpoly mesh %s. Recreate meshes and try again.' % (lowpoly_name))
+                return {'FINISHED'}
+            bpy.data.objects[highpoly_name].select = True
+
+        # export selected objects as .fbx
+        self.report({'INFO'}, "  export to .fbx file")
+        exportFilepath = bpy.path.abspath(context.scene.hilo_outputpath + context.scene.hilo_highpolyfilename + ".fbx")
+        bpy.ops.export_scene.fbx(filepath=exportFilepath, 
+                                 check_existing=False, 
+                                 use_selection=True, 
+                                 object_types={'MESH'}, 
+                                 use_mesh_modifiers=True, 
+                                 bake_anim=False, 
+                                 batch_mode='OFF')
+
+        return {'FINISHED'}
+
+
 class HiloExportLowPolyMeshes(bpy.types.Operator):
     """Export low poly mesh objects to file"""
     bl_idname = "objects.hiloexportlowpoly"
@@ -467,6 +522,7 @@ def register():
     bpy.utils.register_class(HiloSetObjectOriginToCursor);
     bpy.utils.register_class(HiloCreateFinalMeshes);
     bpy.utils.register_class(HiloRefreshFinalMeshes);
+    bpy.utils.register_class(HiloExportMeshes);
     bpy.utils.register_class(HiloExportLowPolyMeshes);
     bpy.utils.register_class(HiloExportHighPolyMeshes);
     
@@ -479,6 +535,7 @@ def unregister():
     bpy.utils.unregister_class(HiloSetObjectOriginToCursor);
     bpy.utils.unregister_class(HiloCreateFinalMeshes);
     bpy.utils.unregister_class(HiloRefreshFinalMeshes);
+    bpy.utils.unregister_class(HiloExportMeshes);
     bpy.utils.unregister_class(HiloExportLowPolyMeshes);
     bpy.utils.unregister_class(HiloExportHighPolyMeshes);
     
