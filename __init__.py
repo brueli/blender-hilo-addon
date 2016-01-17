@@ -407,110 +407,6 @@ class HiloExportMeshes(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HiloExportLowPolyMeshes(bpy.types.Operator):
-    """Export low poly mesh objects to file"""
-    bl_idname = "objects.hiloexportlowpoly"
-    bl_label = "Export Lowpoly To File"
-
-    def execute(self, context):
-
-        # select low poly meshes
-        bpy.ops.objects.hiloselectlowpoly('INVOKE_DEFAULT')
-        self.report({'INFO'}, "%d lowpoly objects selected" % (len(context.selected_objects)))
-
-        # use to_mesh() to duplicate the meshes and apply their modifiers
-        # then create a .final object with the new mesh
-        # and append it to the list of final meshes
-        final_meshes = []
-        for lowpoly_obj in bpy.context.selected_objects:
-            self.report({'INFO'}, "  creating final mesh %s" % (lowpoly_obj.name))
-            final_mesh = lowpoly_obj.to_mesh(scene=context.scene, apply_modifiers=True, settings='PREVIEW')
-            final_mesh_obj = bpy.data.objects.new(lowpoly_obj.name + ".final", final_mesh)
-            context.scene.objects.link(final_mesh_obj)
-            final_mesh_obj.location = lowpoly_obj.location
-            final_meshes.append(final_mesh_obj)
-        
-        # create empty result object
-        self.report({'INFO'}, "  creating result object")
-        bpy.ops.object.add(type='MESH')
-        result_obj = context.active_object
-        
-        # join final meshes into empty result object
-        self.report({'INFO'}, "  joining final meshes")
-        bpy.ops.object.select_all(action='DESELECT')
-        for final_mesh in final_meshes:
-            final_mesh.select = True
-        result_obj.select = True
-        result_obj.name = context.scene.hilo_lowpolyfilename
-        context.scene.objects.active = result_obj
-        bpy.ops.object.join()
-
-        # export as .fbx
-        self.report({'INFO'}, "  export to .fbx file")
-        exportFilepath = bpy.path.abspath(context.scene.hilo_outputpath + context.scene.hilo_lowpolyfilename + ".fbx")
-        bpy.ops.export_scene.fbx(filepath=exportFilepath, 
-                                 check_existing=False, 
-                                 use_selection=True, 
-                                 object_types={'MESH'}, 
-                                 use_mesh_modifiers=True, 
-                                 bake_anim=False, 
-                                 batch_mode='OFF')
-
-        return {'FINISHED'}
-
-
-class HiloExportHighPolyMeshes(bpy.types.Operator):
-    """Export high poly mesh objects to file"""
-    bl_idname = "objects.hiloexporthighpoly"
-    bl_label = "Export Highpoly To File"
-
-    def execute(self, context):
-        # select high poly meshes
-        bpy.ops.objects.hiloselecthighpoly()
-        self.report({'INFO'}, "%d highpoly objects selected" % (len(context.selected_objects)))
-
-        # use to_mesh() to duplicate the meshes and apply their modifiers
-        # then create a .final object with the new mesh
-        # and append it to the list of final meshes
-        final_meshes = []
-        for lowpoly_obj in bpy.context.selected_objects:
-            self.report({'INFO'}, "  creating final mesh %s" % (lowpoly_obj.name))
-            final_mesh = lowpoly_obj.to_mesh(scene=context.scene, apply_modifiers=True, settings='PREVIEW')
-            final_mesh_obj = bpy.data.objects.new(lowpoly_obj.name + ".final", final_mesh)
-            context.scene.objects.link(final_mesh_obj)
-            final_mesh_obj.location = lowpoly_obj.location
-            final_meshes.append(final_mesh_obj)
-        
-        # create empty result object
-        self.report({'INFO'}, "  creating result object")
-        bpy.ops.object.add(type='MESH')
-        result_obj = context.active_object
-        
-        # join final meshes into empty result object
-        self.report({'INFO'}, "  joining final meshes")
-        bpy.ops.object.select_all(action='DESELECT')
-        for final_mesh in final_meshes:
-            final_mesh.select = True
-        result_obj.select = True
-        result_obj.name = context.scene.hilo_highpolyfilename
-        context.scene.objects.active = result_obj
-        bpy.ops.object.join()
-
-        # export as .fbx
-        self.report({'INFO'}, "  export to .fbx file")
-        exportFilepath = bpy.path.abspath(context.scene.hilo_outputpath + context.scene.hilo_highpolyfilename + ".fbx")
-        bpy.ops.export_scene.fbx(filepath=exportFilepath, 
-                                 check_existing=False, 
-                                 use_selection=True, 
-                                 object_types={'MESH'}, 
-                                 use_mesh_modifiers=True, 
-                                 bake_anim=False, 
-                                 batch_mode='OFF')
-
-        return {'FINISHED'}
-
-
-
 
 # register/unregister classes in blender
 # when blender executes the script as addon, `__name__` is "__main__"
@@ -523,8 +419,6 @@ def register():
     bpy.utils.register_class(HiloCreateFinalMeshes);
     bpy.utils.register_class(HiloRefreshFinalMeshes);
     bpy.utils.register_class(HiloExportMeshes);
-    bpy.utils.register_class(HiloExportLowPolyMeshes);
-    bpy.utils.register_class(HiloExportHighPolyMeshes);
     
 
 def unregister():
@@ -536,8 +430,6 @@ def unregister():
     bpy.utils.unregister_class(HiloCreateFinalMeshes);
     bpy.utils.unregister_class(HiloRefreshFinalMeshes);
     bpy.utils.unregister_class(HiloExportMeshes);
-    bpy.utils.unregister_class(HiloExportLowPolyMeshes);
-    bpy.utils.unregister_class(HiloExportHighPolyMeshes);
     
 
 if (__name__ == "__main__"):
