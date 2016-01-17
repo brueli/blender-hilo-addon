@@ -15,6 +15,7 @@ bl_info = {
 
 
 import bpy
+import re
 
 
 # properties
@@ -47,6 +48,79 @@ bpy.types.Scene.hilo_lowpolymodelname = lowpolymodelname_prop
 bpy.types.Scene.hilo_highpolymodelname = highpolymodelname_prop
 
 bpy.types.Object.hilo_meshtype = meshtype_prop
+
+
+class HiloMeshGroups:
+    def __init__(self, object_list, groupname_pattern=None):
+        self.lowpolysuffix = bpy.context.scene.hilo_lowpolysuffix
+        self.highpolysuffix = bpy.context.scene.hilo_highpolysuffix
+        self.groupname_pattern = groupname_pattern
+        self.object_list = []
+        self.group_names = []
+        self.groups = {}
+        self.addObjects(object_list)
+    def groupPattern(self):
+        if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
+            self.groupname_pattern = '$group.*'
+        group_repl = '(\w+)(%s|%s)' % (self.lowpolysuffix, self.highpolysuffix)
+        dot_repl = '\.'
+        star_repl = '.*?'
+        return self.groupname_pattern.replace('$group', group_repl).replace('.', dot_repl).replace('*', star_repl)
+    def addObjects(self, more_objects):
+        for obj in more_objects:
+            if (obj in self.object_list):
+                continue
+            m = re.search(self.groupPattern(), obj.name)
+            if (not m is None):
+                group_name = m.group(1)
+                if (not group_name in self.group_names):
+                    self.group_names.append(group_name)
+        for i_group in range(0, len(self.group_names)):
+            group_name = self.group_names[i_group]
+            # add objects matching the group to the object_list (also adds :origin etc.)
+            for i_obj in range(0, len(more_objects)):
+                obj = more_objects[i_obj]
+                is_name_match = not re.search(self.groupPattern(), obj.name) is None
+                is_aux = obj.name.startswith(group_name + ':')
+                if (is_name_match or is_aux):
+                    self.object_list.append(obj)
+            # then build groups from object list
+            for i_obj in range(0, len(self.object_list)):
+                obj = self.object_list[i_obj]
+                if (obj.name.startswith(group_name)):
+                    if (not i_group in self.groups):
+                        self.groups[i_group] = []
+                    self.groups[i_group].append(i_obj)
+    def getGroup(self, group, types=['ANY']):
+        if (type(group)==str):
+            group = self.group_names.index(group)
+        result = []
+        for i_obj in self.groups[group]:
+            if ('ANY' in types):
+                result.append(self.object_list[i_obj])
+            elif (self.object_list[i_obj].type in types):
+                result.append(self.object_list[i_obj])
+        return result
+    def getOrigin(self, group):
+        if (type(group)==str):
+            group = self.group_names.index(group)
+        for i_obj in self.groups[group]:
+            if (self.object_list[i_obj].name.endswith(':origin')):
+                return self.object_list[i_obj].location
+        return bpy.context.scene.cursor_location
+    def getLowpolyMeshes(self, group):
+        result = []
+        for group_obj in self.getGroup(group, ['MESH']):
+            if (group_obj.name.find(self.lowpolysuffix) > -1):
+                result.append(group_obj)
+        return result
+    def getHighpolyMeshes(self, group):
+        result = []
+        for group_obj in self.getGroup(group, ['MESH']):
+            if (group_obj.name.find(self.highpolysuffix) > -1):
+                result.append(group_obj)
+        return result
+
 
 
 
