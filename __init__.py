@@ -254,6 +254,81 @@ class HiloSetObjectOriginToCursor(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class HiloCreateFinalMeshes(bpy.types.Operator):
+    """Create final high- and lowpoly meshes"""
+    bl_idname = "objects.createfinalmeshes"
+    bl_label = "Hilo - Create Final Meshes"
+
+    def execute(self, context):
+        # find mesh groups in scene
+        groups = HiloMeshGroups(context.scene.objects.values())
+
+        # create lowpoly result object
+        bpy.ops.object.add(type='MESH')
+        lowpoly_result = context.active_object
+        
+        # create highpoly result object
+        bpy.ops.object.add(type='MESH')
+        highpoly_result = context.active_object
+        
+        # update scene
+        context.scene.update()
+        
+        # for each group:
+        for i_group in range(0, groups.groupCount()):
+            # for each lowpoly mesh in group
+            final_meshes = []
+            for lowpoly_obj in groups.getLowpolyMeshes(i_group):
+                # duplicate mesh and apply modifiers
+                final_mesh = lowpoly_obj.to_mesh(scene=context.scene, apply_modifiers=True, settings='PREVIEW')
+                final_mesh_obj = bpy.data.objects.new(lowpoly_obj.name + ".final", final_mesh)
+                context.scene.objects.link(final_mesh_obj)
+                final_mesh_obj.location = lowpoly_obj.location
+                final_meshes.append(final_mesh_obj)
+            # join temp objects into lowpoly result
+            bpy.ops.object.select_all(action='DESELECT')
+            for final_mesh in final_meshes:
+                final_mesh.select = True
+            lowpoly_result.select = True
+            context.scene.objects.active = lowpoly_result
+            bpy.ops.object.join()
+            # rename lowpoly result
+            lowpoly_result.name = groups.group_names[i_group] + groups.lowpolysuffix + ".final"
+            # update scene
+            context.scene.update()
+            # move to group origin
+            context.scene.cursor_location = groups.getOrigin(i_group)
+            context.scene.objects.active = lowpoly_result
+            bpy.ops.objects.hilosetobjectorigintocursor()
+
+            # for each highpoly mesh
+            final_meshes = []
+            for highpoly_obj in groups.getHighpolyMeshes(i_group):
+                # duplicate mesh and apply modifiers
+                final_mesh = highpoly_obj.to_mesh(scene=context.scene, apply_modifiers=True, settings='PREVIEW')
+                final_mesh_obj = bpy.data.objects.new(highpoly_obj.name + ".final", final_mesh)
+                context.scene.objects.link(final_mesh_obj)
+                final_mesh_obj.location = lowpoly_obj.location
+                final_meshes.append(final_mesh_obj)
+            # join temp object into highpoly result
+            bpy.ops.object.select_all(action='DESELECT')
+            for final_mesh in final_meshes:
+                final_mesh.select = True
+            highpoly_result.select = True
+            context.scene.objects.active = highpoly_result
+            bpy.ops.object.join()
+            # rename highpoly result
+            highpoly_result.name = groups.group_names[i_group] + groups.highpolysuffix + ".final"
+            # update scene
+            context.scene.update()
+            # move to group origin
+            context.scene.cursor_location = groups.getOrigin(i_group)
+            context.scene.objects.active = highpoly_result
+            bpy.ops.objects.hilosetobjectorigintocursor()
+
+        return {'FINISHED'}
+
+
 class HiloSelectLowPolyMeshes(bpy.types.Operator):
     """Select all low poly mesh objects"""
     bl_idname = "objects.hiloselectlowpoly"
@@ -395,6 +470,7 @@ def register():
     bpy.utils.register_class(HiloMeshToolScenePanel);
     # operators
     bpy.utils.register_class(HiloSetObjectOriginToCursor);
+    bpy.utils.register_class(HiloCreateFinalMeshes);
     bpy.utils.register_class(HiloSelectLowPolyMeshes);
     bpy.utils.register_class(HiloSelectHighPolyMeshes);
     bpy.utils.register_class(HiloExportLowPolyMeshes);
@@ -407,6 +483,7 @@ def unregister():
     bpy.utils.unregister_class(HiloMeshToolScenePanel);
     # operators
     bpy.utils.unregister_class(HiloSetObjectOriginToCursor);
+    bpy.utils.unregister_class(HiloCreateFinalMeshes);
     bpy.utils.unregister_class(HiloSelectLowPolyMeshes);
     bpy.utils.unregister_class(HiloSelectHighPolyMeshes);
     bpy.utils.unregister_class(HiloExportLowPolyMeshes);
