@@ -341,12 +341,12 @@ class HiloRefreshFinalMeshes(bpy.types.Operator):
         for i_group in range(0, groups.groupCount()):
             bpy.ops.object.select_all(action='DESELECT')
             for group_name in groups.group_names:
-                if (bpy.data.objects.find(group_name + '_final_low') > -1):
-                    lowpoly_final = bpy.data.objects[group_name + '_final_low']
+                if (bpy.data.objects.find(group_name + '_low') > -1):
+                    lowpoly_final = bpy.data.objects[group_name + '_low']
                     context.scene.objects.unlink(lowpoly_final)
                     bpy.data.objects.remove(lowpoly_final)
-                if (bpy.data.objects.find(group_name + '_final_high') > -1):
-                    highpoly_final = bpy.data.objects[group_name + '_final_high']
+                if (bpy.data.objects.find(group_name + '_high') > -1):
+                    highpoly_final = bpy.data.objects[group_name + '_high']
                     context.scene.objects.unlink(highpoly_final)
                     bpy.data.objects.remove(highpoly_final)
         # recreate lowpoly meshes
