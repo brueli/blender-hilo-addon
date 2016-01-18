@@ -19,37 +19,39 @@ import re
 
 
 # properties
-# enum_items = [(id, name, desc, icon, number), ... ]
+# hint: enum_items = [(id, name, desc, icon, number), ... ]
 lowpolymeshsuffix_prop = bpy.props.StringProperty(name="Low Poly Suffix", description="Contains the low poly mesh name suffix, which declares a mesh as a `lowpoly` mesh", default="_low")
 highpolymeshsuffix_prop = bpy.props.StringProperty(name="High Poly Suffix", description="Contains the high poly mesh name suffix, which declares a mesh as a `highpoly mesh`", default="_high")
+groupdetectionmode_enum = [("mesh-group-by-name", "Mesh-Group-by-name", "Detect mesh groups by name: Use `Group Name Pattern` to detect model features (=Blender Objects) which must be joined into a single mesh when final mesh operators are applied."),
+                           ("mesh-group-by-property", "Mesh-Group-by-property", "Use hilo's object properties `Mesh Type` and `Mesh Group` to detect model features (=Blender Objects) which must be joined into a single mesh when final mesh operators are applied.")]
+groupdetectionmode_prop = bpy.props.EnumProperty(name="Mesh Group Detection", items=groupdetectionmode_enum, description="Select a strategy to detect model features (=Blender Objects) which must be joined into a single mesh when final mesh operators are applied.", default='mesh-group-by-name')
+groupnamepattern_prop = bpy.props.StringProperty(name="Group Name Pattern", description="Object Naming Pattern for `Detect Mesh-Group-by-object-name`-feature", default="$group$res.*")
+outputformat_enum = [("fbx", "Export as .fbx", "Export models in .fbx Format (FBX)"),
+                     ("obj", "Export as .obj", "Export models in .obj Format (Wavefront)")]
+outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputformat_enum, description="Selected output format for export operations")
 outputpath_prop = bpy.props.StringProperty(name="Output Directory", description="Stores the output directory path used for export", default="//")
-lowpolyfilename_prop = bpy.props.StringProperty(name="Lowpoly Filename", description="Lowpoly model filename", default="model_low")
-highpolyfilename_prop = bpy.props.StringProperty(name="Highpoly Filename", description="Highpoly model filename", default="model_high")
-groupnamepattern_prop = bpy.props.StringProperty(name="Group Name Pattern", description="Name Pattern for `Mesh-Group-by-name`-feature", default="$group$res.*")
-lowpolymodelname_prop = bpy.props.StringProperty(name="Lowpoly Model", description="Selected Lowpoly Model Object/Group", default="")
-highpolymodelname_prop = bpy.props.StringProperty(name="Highpoly Model", description="Selected Highpoly Model Object/Group", default="")
-
-
+lowpolyfilename_prop = bpy.props.StringProperty(name="Lowpoly Filename", description="Lowpoly model filename", default="mymodel_low")
+highpolyfilename_prop = bpy.props.StringProperty(name="Highpoly Filename", description="Highpoly model filename", default="mymodel_high")
 meshtype_enum = [("ignore", "Ignore", "Ignore mesh in lowpoly and highpoly model"),
                  ("lowpoly", "Lowpoly Mesh", "Use mesh for lowpoly model"),
-                 ("highpoly", "Highpoly Mesh", "Use mesh for highpoly model")]
+                 ("highpoly", "Highpoly Mesh", "Use mesh for highpoly model"),
+                 ("origin", "Origin", "Use this object's location as origin for the model")]
 meshtype_prop = bpy.props.EnumProperty(name="Mesh Type", items=meshtype_enum, description="Contains the mesh type", default="ignore")
-
-outputformat_enum = [("fbx", "Export as .fbx", "Export models in .fbx Format")]
-outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputformat_enum, description="Selected output format for export operations")
+meshgroup_prop = bpy.props.StringProperty(name="Mesh Group", description="Adds this object to the named Mesh Group when using `Detect Mesh-Group-by-property`-feature", default="")
 
 
 bpy.types.Scene.hilo_lowpolymeshsuffix = lowpolymeshsuffix_prop
 bpy.types.Scene.hilo_highpolymeshsuffix = highpolymeshsuffix_prop
+bpy.types.Scene.hilo_groupdetectionmode = groupdetectionmode_prop
 bpy.types.Scene.hilo_groupnamepattern = groupnamepattern_prop
 bpy.types.Scene.hilo_outputformat = outputformat_prop
 bpy.types.Scene.hilo_outputpath = outputpath_prop
 bpy.types.Scene.hilo_lowpolyfilename = lowpolyfilename_prop
 bpy.types.Scene.hilo_highpolyfilename = highpolyfilename_prop
-bpy.types.Scene.hilo_lowpolymodelname = lowpolymodelname_prop
-bpy.types.Scene.hilo_highpolymodelname = highpolymodelname_prop
 
-bpy.types.Object.hilo_meshtype = meshtype_prop
+# object properties are used by the `Detect Mesh-Group-by-property`-feature to determine the mesh/object usage
+bpy.types.Object.hilo_meshtype = meshtype_prop   # object type: 'lowpoly', 'highpoly', 'origin' or 'ignore'
+bpy.types.Object.hilo_meshgroup = meshgroup_prop # name of the mesh group this object belongs to
 
 
 class HiloMeshGroups:
@@ -186,6 +188,13 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol.label(text="High Poly Object Suffix")
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_highpolymeshsuffix", text="")
+
+        # group detection mode
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Mesh Group Detection")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.scene, "hilo_groupdetectionmode", text="")
 
         # output format
         row = layout.row()
