@@ -25,6 +25,7 @@ highpolysuffix_prop = bpy.props.StringProperty(name="High Poly Suffix", descript
 outputpath_prop = bpy.props.StringProperty(name="Output Directory", description="Stores the output directory path used for export", default="//")
 lowpolyfilename_prop = bpy.props.StringProperty(name="Lowpoly Filename", description="Lowpoly model filename", default="model_low")
 highpolyfilename_prop = bpy.props.StringProperty(name="Highpoly Filename", description="Highpoly model filename", default="model_high")
+groupnamepattern_prop = bpy.props.StringProperty(name="Group Name Pattern", description="Name Pattern for `Mesh-Group-by-name`-feature", default="$group$res.*")
 lowpolymodelname_prop = bpy.props.StringProperty(name="Lowpoly Model", description="Selected Lowpoly Model Object/Group", default="")
 highpolymodelname_prop = bpy.props.StringProperty(name="Highpoly Model", description="Selected Highpoly Model Object/Group", default="")
 
@@ -40,6 +41,7 @@ outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputfor
 
 bpy.types.Scene.hilo_lowpolysuffix = lowpolysuffix_prop
 bpy.types.Scene.hilo_highpolysuffix = highpolysuffix_prop
+bpy.types.Scene.hilo_groupnamepattern = groupnamepattern_prop
 bpy.types.Scene.hilo_outputformat = outputformat_prop
 bpy.types.Scene.hilo_outputpath = outputpath_prop
 bpy.types.Scene.hilo_lowpolyfilename = lowpolyfilename_prop
@@ -51,10 +53,13 @@ bpy.types.Object.hilo_meshtype = meshtype_prop
 
 
 class HiloMeshGroups:
-    def __init__(self, objects=[], name_pattern='$group.*'):
+    def __init__(self, objects=[], name_pattern=None):
         self.lowpolysuffix = bpy.context.scene.hilo_lowpolysuffix
         self.highpolysuffix = bpy.context.scene.hilo_highpolysuffix
-        self.groupname_pattern = name_pattern
+        if (name_pattern is None):
+            self.groupname_pattern = bpy.context.scene.hilo_groupnamepattern
+        else:
+            self.groupname_pattern = name_pattern
         self.object_list = []
         self.group_names = []
         self.groups = {}
@@ -62,10 +67,11 @@ class HiloMeshGroups:
     def groupPattern(self):
         if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
             self.groupname_pattern = '$group.*'
-        group_repl = '(\w+)(%s|%s)' % (self.lowpolysuffix, self.highpolysuffix)
+        group_repl = '(\w+)'
+        res_repl = '(%s|%s)' % (self.lowpolysuffix, self.highpolysuffix)
         dot_repl = '\.'
         star_repl = '.*?'
-        return self.groupname_pattern.replace('$group', group_repl).replace('.', dot_repl).replace('*', star_repl)
+        return self.groupname_pattern.replace('$group', group_repl).replace('$res', res_repl).replace('.', dot_repl).replace('*', star_repl)
     def addObjects(self, more_objects):
         for obj in more_objects:
             if (obj in self.object_list):
