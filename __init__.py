@@ -280,7 +280,17 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_highpolyfilename", text="")
 
-        # export options
+        # create final mesh button
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Mesh Generation")
+
+        # export final mesh button
+        rowcol = row.column(align=True)
+        rowcol.operator("objects.hilorefreshfinalmesh", text="Regenerate Final Meshes")
+        rowcol.operator("objects.hiloexportfinalmesh", text="Export Final Meshes")
+
+        # export options?
         # join objects (--> join all meshes following a name pattern before export)
         # apply suffixes (--> add `_low` and `_high` suffixes to resulting meshes)
         # keep modifiers (--> use duplicates for mesh-join)
