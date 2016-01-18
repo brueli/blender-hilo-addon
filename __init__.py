@@ -4,13 +4,13 @@
 bl_info = {
 	"name": "High- and Lowpoly Mesh Tools",
 	"author": "Ramon Brülisauer",
-	"version": (0, 0, 20160117),
+	"version": (0, 0, 20160118),
 	"blender": (2, 76, 0),
 	"location": "Properties > Scene > High-/Lowpoly Mesh, Properties > Object > High-/Lowpoly Mesh",
 	"description": "Blender addon for working with high and lowpoly meshes",
-	"warning": "",
-	"wiki_url": "",
-	"tracker_url": "",
+	"warning": "Beta Version",
+	"wiki_url": "https://github.com/brueli/blender-hilo-addon/wiki",
+	"tracker_url": "https://github.com/brueli/blender-hilo-addon/issues",
 	"category": "Mesh"}
 
 
