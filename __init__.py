@@ -195,7 +195,7 @@ class HiloMeshGroups:
 
 
 class HiloMeshToolObjectPanel(bpy.types.Panel):
-    bl_label = "High-/Lowpoly Mesh"
+    bl_label = "High-/Lowpoly Object"
     bl_idname = "HiloMeshToolsObjectPanel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -221,7 +221,7 @@ class HiloMeshToolObjectPanel(bpy.types.Panel):
 
 
 class HiloMeshToolScenePanel(bpy.types.Panel):
-    bl_label = "High-/Lowpoly Mesh"
+    bl_label = "High-/Lowpoly Settings"
     bl_idname = "HiloMeshToolScenePanel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
