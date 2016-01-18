@@ -325,9 +325,9 @@ class HiloSetObjectOriginToCursor(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HiloCreateFinalMeshes(bpy.types.Operator):
+class HiloCreateFinalMesh(bpy.types.Operator):
     """Create final high- and lowpoly meshes"""
-    bl_idname = "objects.createfinalmesh"
+    bl_idname = "objects.hilocreatefinalmesh"
     bl_label = "Hilo - Create Final Meshes"
 
     def execute(self, context):
@@ -400,9 +400,9 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HiloRefreshFinalMeshes(bpy.types.Operator):
+class HiloRefreshFinalMesh(bpy.types.Operator):
     '''Recreate final meshes. Existing final meshes are overwritten'''
-    bl_idname = "objects.refreshfinalmesh"
+    bl_idname = "objects.hilorefreshfinalmesh"
     bl_label = "Hilo - Refresh Final Meshes"
 
     def execute(self, context):
@@ -421,7 +421,7 @@ class HiloRefreshFinalMeshes(bpy.types.Operator):
                     context.scene.objects.unlink(highpoly_final)
                     bpy.data.objects.remove(highpoly_final)
         # recreate lowpoly meshes
-        bpy.ops.objects.createfinalmesh()
+        bpy.ops.objects.hilocreatefinalmesh()
         return {'FINISHED'}
 
 
@@ -487,8 +487,8 @@ def register():
     bpy.utils.register_class(HiloMeshToolScenePanel);
     # operators
     bpy.utils.register_class(HiloSetObjectOriginToCursor);
-    bpy.utils.register_class(HiloCreateFinalMeshes);
-    bpy.utils.register_class(HiloRefreshFinalMeshes);
+    bpy.utils.register_class(HiloCreateFinalMesh);
+    bpy.utils.register_class(HiloRefreshFinalMesh);
     bpy.utils.register_class(HiloExportMeshes);
     
 
@@ -498,8 +498,8 @@ def unregister():
     bpy.utils.unregister_class(HiloMeshToolScenePanel);
     # operators
     bpy.utils.unregister_class(HiloSetObjectOriginToCursor);
-    bpy.utils.unregister_class(HiloCreateFinalMeshes);
-    bpy.utils.unregister_class(HiloRefreshFinalMeshes);
+    bpy.utils.unregister_class(HiloCreateFinalMesh);
+    bpy.utils.unregister_class(HiloRefreshFinalMesh);
     bpy.utils.unregister_class(HiloExportMeshes);
     
 
