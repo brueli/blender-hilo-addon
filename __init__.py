@@ -20,8 +20,8 @@ import re
 
 # properties
 # enum_items = [(id, name, desc, icon, number), ... ]
-lowpolysuffix_prop = bpy.props.StringProperty(name="Low Poly Suffix", description="Contains the low poly mesh name suffix, which declares a mesh as a `lowpoly` mesh", default="_low")
-highpolysuffix_prop = bpy.props.StringProperty(name="High Poly Suffix", description="Contains the high poly mesh name suffix, which declares a mesh as a `highpoly mesh`", default="_high")
+lowpolymeshsuffix_prop = bpy.props.StringProperty(name="Low Poly Suffix", description="Contains the low poly mesh name suffix, which declares a mesh as a `lowpoly` mesh", default="_low")
+highpolymeshsuffix_prop = bpy.props.StringProperty(name="High Poly Suffix", description="Contains the high poly mesh name suffix, which declares a mesh as a `highpoly mesh`", default="_high")
 outputpath_prop = bpy.props.StringProperty(name="Output Directory", description="Stores the output directory path used for export", default="//")
 lowpolyfilename_prop = bpy.props.StringProperty(name="Lowpoly Filename", description="Lowpoly model filename", default="model_low")
 highpolyfilename_prop = bpy.props.StringProperty(name="Highpoly Filename", description="Highpoly model filename", default="model_high")
@@ -39,8 +39,8 @@ outputformat_enum = [("fbx", "Export as .fbx", "Export models in .fbx Format")]
 outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputformat_enum, description="Selected output format for export operations")
 
 
-bpy.types.Scene.hilo_lowpolysuffix = lowpolysuffix_prop
-bpy.types.Scene.hilo_highpolysuffix = highpolysuffix_prop
+bpy.types.Scene.hilo_lowpolymeshsuffix = lowpolymeshsuffix_prop
+bpy.types.Scene.hilo_highpolymeshsuffix = highpolymeshsuffix_prop
 bpy.types.Scene.hilo_groupnamepattern = groupnamepattern_prop
 bpy.types.Scene.hilo_outputformat = outputformat_prop
 bpy.types.Scene.hilo_outputpath = outputpath_prop
@@ -54,8 +54,8 @@ bpy.types.Object.hilo_meshtype = meshtype_prop
 
 class HiloMeshGroups:
     def __init__(self, objects=[], name_pattern=None):
-        self.lowpolysuffix = bpy.context.scene.hilo_lowpolysuffix
-        self.highpolysuffix = bpy.context.scene.hilo_highpolysuffix
+        self.lowpolymeshsuffix = bpy.context.scene.hilo_lowpolymeshsuffix
+        self.highpolymeshsuffix = bpy.context.scene.hilo_highpolymeshsuffix
         if (name_pattern is None):
             self.groupname_pattern = bpy.context.scene.hilo_groupnamepattern
         else:
@@ -68,7 +68,7 @@ class HiloMeshGroups:
         if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
             self.groupname_pattern = '$group.*'
         group_repl = '(\w+)'
-        res_repl = '(%s|%s)' % (self.lowpolysuffix, self.highpolysuffix)
+        res_repl = '(%s|%s)' % (self.lowpolymeshsuffix, self.highpolymeshsuffix)
         dot_repl = '\.'
         star_repl = '.*?'
         return self.groupname_pattern.replace('$group', group_repl).replace('$res', res_repl).replace('.', dot_repl).replace('*', star_repl)
@@ -117,13 +117,13 @@ class HiloMeshGroups:
     def getLowpolyMeshes(self, group):
         result = []
         for group_obj in self.getGroup(group, ['MESH']):
-            if (group_obj.name.find(self.lowpolysuffix) > -1):
+            if (group_obj.name.find(self.lowpolymeshsuffix) > -1):
                 result.append(group_obj)
         return result
     def getHighpolyMeshes(self, group):
         result = []
         for group_obj in self.getGroup(group, ['MESH']):
-            if (group_obj.name.find(self.highpolysuffix) > -1):
+            if (group_obj.name.find(self.highpolymeshsuffix) > -1):
                 result.append(group_obj)
         return result
     def groupCount(self):
@@ -178,14 +178,14 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.label(text="Low Poly Object Suffix")
         rowcol = row.column(align=True)
-        rowcol.prop(context.scene, "hilo_lowpolysuffix", text="")
+        rowcol.prop(context.scene, "hilo_lowpolymeshsuffix", text="")
 
         # set high poly suffix
         row = layout.row()
         rowcol = row.column(align=True)
         rowcol.label(text="High Poly Object Suffix")
         rowcol = row.column(align=True)
-        rowcol.prop(context.scene, "hilo_highpolysuffix", text="")
+        rowcol.prop(context.scene, "hilo_highpolymeshsuffix", text="")
 
         # output format
         row = layout.row()
@@ -299,7 +299,7 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
             context.scene.objects.active = lowpoly_result
             bpy.ops.object.join()
             # rename lowpoly result
-            lowpoly_result.name = groups.group_names[i_group] + groups.lowpolysuffix
+            lowpoly_result.name = groups.group_names[i_group] + groups.lowpolymeshsuffix
             # update scene
             context.scene.update()
             # move to group origin
@@ -324,7 +324,7 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
             context.scene.objects.active = highpoly_result
             bpy.ops.object.join()
             # rename highpoly result
-            highpoly_result.name = groups.group_names[i_group] + groups.highpolysuffix
+            highpoly_result.name = groups.group_names[i_group] + groups.highpolymeshsuffix
             # update scene
             context.scene.update()
             # move to group origin
@@ -372,7 +372,7 @@ class HiloExportMeshes(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         for i_group in range(0, groups.groupCount()):
             group_name = groups.group_names[i_group]
-            lowpoly_name = group_name + context.scene.hilo_lowpolysuffix
+            lowpoly_name = group_name + context.scene.hilo_lowpolymeshsuffix
             if (bpy.data.objects.find(lowpoly_name) == -1):
                 self.report({'ERROR'}, 'could not find lowpoly mesh %s. Recreate meshes and try again.' % (lowpoly_name))
                 return {'FINISHED'}
@@ -393,7 +393,7 @@ class HiloExportMeshes(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         for i_group in range(0, groups.groupCount()):
             group_name = groups.group_names[i_group]
-            highpoly_name = group_name + context.scene.hilo_highpolysuffix
+            highpoly_name = group_name + context.scene.hilo_highpolymeshsuffix
             if (bpy.data.objects.find(highpoly_name) == -1):
                 self.report({'ERROR'}, 'could not find highpoly mesh %s. Recreate meshes and try again.' % (lowpoly_name))
                 return {'FINISHED'}
