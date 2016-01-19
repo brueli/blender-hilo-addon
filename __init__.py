@@ -4,7 +4,7 @@
 bl_info = {
 	"name": "High- and Lowpoly Mesh Tools",
 	"author": "Ramon Brülisauer",
-	"version": (0, 0, 20160118),
+	"version": (0, 0, 20160119),
 	"blender": (2, 76, 0),
 	"location": "Properties > Scene > High-/Lowpoly Mesh, Properties > Object > High-/Lowpoly Mesh",
 	"description": "Blender addon for working with high and lowpoly meshes",
