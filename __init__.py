@@ -62,6 +62,12 @@ class HiloMeshGroupDetectionStrategy:
         return []
     def findGroupObjects(self, group):
         return []
+    def isOrigin(self, obj):
+        return False
+    def isLowpolyMesh(self, obj):
+        return False
+    def isHighpolyMesh(self, obj):
+        return False
     
 
 class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
@@ -97,6 +103,16 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
             if ((is_pattern_match and is_group) or is_aux):
                 result.append(obj)
         return result
+    def isOrigin(self, obj):
+        return obj.name.find(":origin") > -1
+    def isLowpolyMesh(self, obj):
+        is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
+        is_res_match = obj.name.find(self.lowpolymeshsuffix) > -1
+        return is_pattern_match and is_res_match
+    def isHighpolyMesh(self, obj):
+        is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
+        is_res_match = obj.name.find(self.highpolymeshsuffix) > -1
+        return is_pattern_match and is_res_match
 
 
 class HiloDetectMeshGroupByProperty(HiloMeshGroupDetectionStrategy):
@@ -118,6 +134,12 @@ class HiloDetectMeshGroupByProperty(HiloMeshGroupDetectionStrategy):
             if (is_group):
                 result.append(obj)
         return result
+    def isOrigin(self, obj):
+        return obj.hilo_meshtype == 'origin'
+    def isLowpolyMesh(self, obj):
+        return obj.hilo_meshtype == 'lowpoly'
+    def isHighpolyMesh(self, obj):
+        return obj.hilo_meshtype == 'highpoly'
 
 
 class HiloMeshGroups:
@@ -170,22 +192,25 @@ class HiloMeshGroups:
                 result.append(self.object_list[i_obj])
         return result
     def getOrigin(self, group):
+        mg = self.getMeshGroupDetector([])
         if (type(group)==str):
             group = self.group_names.index(group)
         for i_obj in self.groups[group]:
-            if (self.object_list[i_obj].name.endswith(':origin')):
+            if (mg.isOrigin(self.object_list[i_obj])):
                 return self.object_list[i_obj].location
         return bpy.context.scene.cursor_location
     def getLowpolyMeshes(self, group):
+        mg = self.getMeshGroupDetector([])
         result = []
         for group_obj in self.getGroup(group, ['MESH']):
-            if (group_obj.name.find(self.lowpolymeshsuffix) > -1):
+            if (mg.isLowpolyMesh(group_obj)):
                 result.append(group_obj)
         return result
     def getHighpolyMeshes(self, group):
+        mg = self.getMeshGroupDetector([])
         result = []
         for group_obj in self.getGroup(group, ['MESH']):
-            if (group_obj.name.find(self.highpolymeshsuffix) > -1):
+            if (mg.isHighpolyMesh(group_obj)):
                 result.append(group_obj)
         return result
     def groupCount(self):
