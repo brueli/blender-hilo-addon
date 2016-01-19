@@ -290,11 +290,6 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol.operator("objects.hilorefreshfinalmesh", text="Regenerate Final Meshes")
         rowcol.operator("objects.hiloexportfinalmesh", text="Export Final Meshes")
 
-        # export options?
-        # join objects (--> join all meshes following a name pattern before export)
-        # apply suffixes (--> add `_low` and `_high` suffixes to resulting meshes)
-        # keep modifiers (--> use duplicates for mesh-join)
-
 
 class HiloSetObjectOriginToCursor(bpy.types.Operator):
     """Set object origin to 3D cursor position"""
