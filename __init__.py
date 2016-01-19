@@ -19,37 +19,105 @@ import re
 
 
 # properties
-# enum_items = [(id, name, desc, icon, number), ... ]
+# hint: enum_items = [(id, name, desc, icon, number), ... ]
 lowpolymeshsuffix_prop = bpy.props.StringProperty(name="Low Poly Suffix", description="Contains the low poly mesh name suffix, which declares a mesh as a `lowpoly` mesh", default="_low")
 highpolymeshsuffix_prop = bpy.props.StringProperty(name="High Poly Suffix", description="Contains the high poly mesh name suffix, which declares a mesh as a `highpoly mesh`", default="_high")
+groupdetectionmode_enum = [("mesh-group-by-name", "Mesh-Group-by-name", "Use `Group Name Pattern` and object names to detect model features."),
+                           ("mesh-group-by-property", "Mesh-Group-by-property", "Use hilo's object properties `Mesh Type` and `Mesh Group` to detect model features.")]
+groupdetectionmode_prop = bpy.props.EnumProperty(name="Mesh Group Detection", items=groupdetectionmode_enum, description="Select a strategy to detect model features (=Blender Objects) which are joined together into a single mesh when final mesh operators are applied.", default='mesh-group-by-name')
+groupnamepattern_prop = bpy.props.StringProperty(name="Group Name Pattern", description="Object Naming Pattern for `Detect Mesh-Group-by-object-name`-feature", default="$group$res.*")
+outputformat_enum = [("fbx", "Export as .fbx", "Export models in .fbx Format (FBX)"),
+                     ("obj", "Export as .obj", "Export models in .obj Format (Wavefront)")]
+outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputformat_enum, description="Selected output format for export operations")
 outputpath_prop = bpy.props.StringProperty(name="Output Directory", description="Stores the output directory path used for export", default="//")
-lowpolyfilename_prop = bpy.props.StringProperty(name="Lowpoly Filename", description="Lowpoly model filename", default="model_low")
-highpolyfilename_prop = bpy.props.StringProperty(name="Highpoly Filename", description="Highpoly model filename", default="model_high")
-groupnamepattern_prop = bpy.props.StringProperty(name="Group Name Pattern", description="Name Pattern for `Mesh-Group-by-name`-feature", default="$group$res.*")
-lowpolymodelname_prop = bpy.props.StringProperty(name="Lowpoly Model", description="Selected Lowpoly Model Object/Group", default="")
-highpolymodelname_prop = bpy.props.StringProperty(name="Highpoly Model", description="Selected Highpoly Model Object/Group", default="")
-
-
+lowpolyfilename_prop = bpy.props.StringProperty(name="Lowpoly Filename", description="Lowpoly model filename", default="mymodel_low")
+highpolyfilename_prop = bpy.props.StringProperty(name="Highpoly Filename", description="Highpoly model filename", default="mymodel_high")
 meshtype_enum = [("ignore", "Ignore", "Ignore mesh in lowpoly and highpoly model"),
                  ("lowpoly", "Lowpoly Mesh", "Use mesh for lowpoly model"),
-                 ("highpoly", "Highpoly Mesh", "Use mesh for highpoly model")]
+                 ("highpoly", "Highpoly Mesh", "Use mesh for highpoly model"),
+                 ("origin", "Origin", "Use this object's location as origin for the model")]
 meshtype_prop = bpy.props.EnumProperty(name="Mesh Type", items=meshtype_enum, description="Contains the mesh type", default="ignore")
-
-outputformat_enum = [("fbx", "Export as .fbx", "Export models in .fbx Format")]
-outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputformat_enum, description="Selected output format for export operations")
+meshgroup_prop = bpy.props.StringProperty(name="Mesh Group", description="Adds this object to the named Mesh Group when using `Detect Mesh-Group-by-property`-feature", default="")
 
 
 bpy.types.Scene.hilo_lowpolymeshsuffix = lowpolymeshsuffix_prop
 bpy.types.Scene.hilo_highpolymeshsuffix = highpolymeshsuffix_prop
+bpy.types.Scene.hilo_groupdetectionmode = groupdetectionmode_prop
 bpy.types.Scene.hilo_groupnamepattern = groupnamepattern_prop
 bpy.types.Scene.hilo_outputformat = outputformat_prop
 bpy.types.Scene.hilo_outputpath = outputpath_prop
 bpy.types.Scene.hilo_lowpolyfilename = lowpolyfilename_prop
 bpy.types.Scene.hilo_highpolyfilename = highpolyfilename_prop
-bpy.types.Scene.hilo_lowpolymodelname = lowpolymodelname_prop
-bpy.types.Scene.hilo_highpolymodelname = highpolymodelname_prop
 
-bpy.types.Object.hilo_meshtype = meshtype_prop
+# object properties are used by the `Detect Mesh-Group-by-property`-feature to determine the mesh/object usage
+bpy.types.Object.hilo_meshtype = meshtype_prop   # object type: 'lowpoly', 'highpoly', 'origin' or 'ignore'
+bpy.types.Object.hilo_meshgroup = meshgroup_prop # name of the mesh group this object belongs to
+
+
+class HiloMeshGroupDetectionStrategy:
+    def __init__(self, objects, options):
+        self.object_list = objects
+        self.options = options
+    def findGroupNames(self):
+        return []
+    def findGroupObjects(self, group):
+        return []
+    
+
+class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
+    def __init__(self, objects, options):
+        self.groupname_pattern = options['name_pattern']         # bpy.context.scene.hilo_groupnamepattern
+        self.lowpolymeshsuffix = options['lowpolymesh_suffix']   # bpy.context.scene.hilo_lowpolymeshsuffix
+        self.highpolymeshsuffix = options['highpolymesh_suffix'] # bpy.context.scene.hilo_highpolymeshsuffix
+        return super(HiloDetectMeshGroupByNamePattern, self).__init__(objects, options)
+    def groupPattern(self):
+        if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
+            self.groupname_pattern = '$group$res.*'
+        group_repl = '(\w+)'
+        res_repl = '(%s|%s)' % (self.lowpolymeshsuffix, self.highpolymeshsuffix)
+        dot_repl = '\.'
+        star_repl = '.*?'
+        return self.groupname_pattern.replace('$group', group_repl).replace('$res', res_repl).replace('.', dot_repl).replace('*', star_repl)
+    def findGroupNames(self):
+        result = []
+        for obj in self.object_list:
+            m = re.search(self.groupPattern(), obj.name)
+            if (not m is None):
+                group_name = m.group(1)
+                if (not group_name in result):
+                    result.append(group_name)
+        return result 
+    def findGroupObjects(self, group):
+        result = []
+        for i_obj in range(0, len(self.object_list)):
+            obj = self.object_list[i_obj]
+            is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
+            is_group = obj.name.startswith(group)
+            is_aux = obj.name.startswith(group + ':')
+            if ((is_pattern_match and is_group) or is_aux):
+                result.append(obj)
+        return result
+
+
+class HiloDetectMeshGroupByProperty(HiloMeshGroupDetectionStrategy):
+    def __init__(self, objects, options):
+        return super(HiloDetectMeshGroupByProperty, self).__init__(objects, options)
+    def findGroupNames(self):
+        result = []
+        for obj in self.object_list:
+            if ( (not obj.hilo_meshgroup is None) and (obj.hilo_meshgroup != '')):
+                group_name = obj.hilo_meshgroup
+                if (not group_name in result):
+                    result.append(group_name)
+        return result 
+    def findGroupObjects(self, group):
+        result = []
+        for i_obj in range(0, len(self.object_list)):
+            obj = self.object_list[i_obj]
+            is_group = obj.hilo_meshgroup == group
+            if (is_group):
+                result.append(obj)
+        return result
 
 
 class HiloMeshGroups:
@@ -64,36 +132,30 @@ class HiloMeshGroups:
         self.group_names = []
         self.groups = {}
         self.addObjects(objects)
-    def groupPattern(self):
-        if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
-            self.groupname_pattern = '$group.*'
-        group_repl = '(\w+)'
-        res_repl = '(%s|%s)' % (self.lowpolymeshsuffix, self.highpolymeshsuffix)
-        dot_repl = '\.'
-        star_repl = '.*?'
-        return self.groupname_pattern.replace('$group', group_repl).replace('$res', res_repl).replace('.', dot_repl).replace('*', star_repl)
+    def getMeshGroupDetector(self, more_objects):
+        if (bpy.context.scene.hilo_groupdetectionmode == 'mesh-group-by-name'):
+            return HiloDetectMeshGroupByNamePattern(more_objects, {
+                'name_pattern':        bpy.context.scene.hilo_groupnamepattern,
+                'lowpolymesh_suffix':  bpy.context.scene.hilo_lowpolymeshsuffix,
+                'highpolymesh_suffix': bpy.context.scene.hilo_highpolymeshsuffix
+                })
+        elif (bpy.context.scene.hilo_groupdetectionmode == 'mesh-group-by-property'):
+            return HiloDetectMeshGroupByProperty(more_objects, {})
     def addObjects(self, more_objects):
-        for obj in more_objects:
-            if (obj in self.object_list):
-                continue
-            m = re.search(self.groupPattern(), obj.name)
-            if (not m is None):
-                group_name = m.group(1)
-                if (not group_name in self.group_names):
-                    self.group_names.append(group_name)
+        # get the group detector
+        groupDetector = self.getMeshGroupDetector(more_objects)
+        # find group names and add them to the list of group names
+        new_groups = groupDetector.findGroupNames()
+        for group_name in new_groups:
+            if (not group_name in self.group_names):
+                self.group_names.append(group_name)
+        # find group members and add them to the object list and to the group list
         for i_group in range(0, len(self.group_names)):
-            group_name = self.group_names[i_group]
-            # add objects matching the group to the object_list (also adds :origin etc.)
-            for i_obj in range(0, len(more_objects)):
-                obj = more_objects[i_obj]
-                is_name_match = not re.search(self.groupPattern(), obj.name) is None
-                is_aux = obj.name.startswith(group_name + ':')
-                if (is_name_match or is_aux):
+            group_objects = groupDetector.findGroupObjects(self.group_names[i_group])
+            for obj in group_objects:
+                if (not obj in self.object_list):
+                    i_obj = len(self.object_list)
                     self.object_list.append(obj)
-            # then build groups from object list
-            for i_obj in range(0, len(self.object_list)):
-                obj = self.object_list[i_obj]
-                if (obj.name.startswith(group_name)):
                     if (not i_group in self.groups):
                         self.groups[i_group] = []
                     self.groups[i_group].append(i_obj)
@@ -133,7 +195,7 @@ class HiloMeshGroups:
 
 
 class HiloMeshToolObjectPanel(bpy.types.Panel):
-    bl_label = "High-/Lowpoly Mesh"
+    bl_label = "High-/Lowpoly Object"
     bl_idname = "HiloMeshToolsObjectPanel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -150,20 +212,16 @@ class HiloMeshToolObjectPanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.prop(context.object, "hilo_meshtype", text="")
 
-        # show export button
+        # set mesh group name for Mesh-Group-by-property
         row = layout.row()
         rowcol = row.column(align=True)
-        rowcol.label(text="Export")
+        rowcol.label(text="Mesh Group")
         rowcol = row.column(align=True)
-        rowcol2 = rowcol.column(align=True)
-        if (context.object.hilo_meshtype == 'lowpoly'):
-            rowcol2.operator("objects.hiloexportlowpoly", text="Lowpoly To File")
-        if (context.object.hilo_meshtype == 'highpoly'):
-            rowcol2.operator("objects.hiloexporthighpoly", text="Highpoly To File")
+        rowcol.prop(context.object, "hilo_meshgroup", text="")
 
 
 class HiloMeshToolScenePanel(bpy.types.Panel):
-    bl_label = "High-/Lowpoly Mesh"
+    bl_label = "High-/Lowpoly Settings"
     bl_idname = "HiloMeshToolScenePanel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -186,6 +244,13 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol.label(text="High Poly Object Suffix")
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_highpolymeshsuffix", text="")
+
+        # group detection mode
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Mesh Group Detection")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.scene, "hilo_groupdetectionmode", text="")
 
         # output format
         row = layout.row()
@@ -215,7 +280,17 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_highpolyfilename", text="")
 
-        # export options
+        # create final mesh button
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Mesh Generation")
+
+        # export final mesh button
+        rowcol = row.column(align=True)
+        rowcol.operator("objects.hilorefreshfinalmesh", text="Regenerate Final Meshes")
+        rowcol.operator("objects.hiloexportfinalmesh", text="Export Final Meshes")
+
+        # export options?
         # join objects (--> join all meshes following a name pattern before export)
         # apply suffixes (--> add `_low` and `_high` suffixes to resulting meshes)
         # keep modifiers (--> use duplicates for mesh-join)
@@ -260,9 +335,9 @@ class HiloSetObjectOriginToCursor(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HiloCreateFinalMeshes(bpy.types.Operator):
+class HiloCreateFinalMesh(bpy.types.Operator):
     """Create final high- and lowpoly meshes"""
-    bl_idname = "objects.createfinalmesh"
+    bl_idname = "objects.hilocreatefinalmesh"
     bl_label = "Hilo - Create Final Meshes"
 
     def execute(self, context):
@@ -335,9 +410,9 @@ class HiloCreateFinalMeshes(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HiloRefreshFinalMeshes(bpy.types.Operator):
+class HiloRefreshFinalMesh(bpy.types.Operator):
     '''Recreate final meshes. Existing final meshes are overwritten'''
-    bl_idname = "objects.refreshfinalmesh"
+    bl_idname = "objects.hilorefreshfinalmesh"
     bl_label = "Hilo - Refresh Final Meshes"
 
     def execute(self, context):
@@ -356,7 +431,7 @@ class HiloRefreshFinalMeshes(bpy.types.Operator):
                     context.scene.objects.unlink(highpoly_final)
                     bpy.data.objects.remove(highpoly_final)
         # recreate lowpoly meshes
-        bpy.ops.objects.createfinalmesh()
+        bpy.ops.objects.hilocreatefinalmesh()
         return {'FINISHED'}
 
 
@@ -422,8 +497,8 @@ def register():
     bpy.utils.register_class(HiloMeshToolScenePanel);
     # operators
     bpy.utils.register_class(HiloSetObjectOriginToCursor);
-    bpy.utils.register_class(HiloCreateFinalMeshes);
-    bpy.utils.register_class(HiloRefreshFinalMeshes);
+    bpy.utils.register_class(HiloCreateFinalMesh);
+    bpy.utils.register_class(HiloRefreshFinalMesh);
     bpy.utils.register_class(HiloExportMeshes);
     
 
@@ -433,8 +508,8 @@ def unregister():
     bpy.utils.unregister_class(HiloMeshToolScenePanel);
     # operators
     bpy.utils.unregister_class(HiloSetObjectOriginToCursor);
-    bpy.utils.unregister_class(HiloCreateFinalMeshes);
-    bpy.utils.unregister_class(HiloRefreshFinalMeshes);
+    bpy.utils.unregister_class(HiloCreateFinalMesh);
+    bpy.utils.unregister_class(HiloRefreshFinalMesh);
     bpy.utils.unregister_class(HiloExportMeshes);
     
 
