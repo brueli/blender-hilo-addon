@@ -402,6 +402,21 @@ class HiloCreateFinalMesh(bpy.types.Operator):
             context.scene.objects.active = lowpoly_result
             bpy.ops.objects.hilosetobjectorigintocursor()
 
+            # uv unwrap lowpoly model
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            unwrap_mode = 'smart-unwrap'
+            if (unwrap_mode == 'smart-unwrap'):
+                bpy.ops.uv.smart_project(island_margin=0.01)
+            elif (unwrap_mode == 'simple-unwrap'):
+                bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.1)
+            elif (unwrap_mode == 'cube-projection'):
+                bpy.ops.uv.cube_project(ctx_override)
+            else:
+                self.report({'ERROR', 'Invalid unwrap mode %s' % (unwrap_mode)})
+                return {'FINISHED'}
+            bpy.ops.object.mode_set(mode='OBJECT')
+
             # for each highpoly mesh
             final_meshes = []
             for highpoly_obj in groups.getHighpolyMeshes(i_group):
