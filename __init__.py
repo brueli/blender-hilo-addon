@@ -38,10 +38,15 @@ meshtype_enum = [("ignore", "Ignore", "Ignore mesh in lowpoly and highpoly model
                  ("origin", "Origin", "Use this object's location as origin for the model")]
 meshtype_prop = bpy.props.EnumProperty(name="Mesh Type", items=meshtype_enum, description="Contains the mesh type", default="ignore")
 meshgroup_prop = bpy.props.StringProperty(name="Mesh Group", description="Adds this object to the named Mesh Group when using `Detect Mesh-Group-by-property`-feature", default="")
-
+autounwrap_enum = [("none", "None", "No automatic UV unwrap on final lowpoly mesh"),
+                   ("smart-unwrap", "Smart Project", "Use `Smart Project` method for UV unwrap on final lowpoly mesh"),
+                   ("cube-project", "Cube Project", "Use `Cube Projection` method for UV unwrap on final lowpoly mesh"),
+                   ("unwrap", "Unwrap", "Use default `Unwrap` method for UV unwrap on final lowpoly mesh")]
+autounwrap_prop = bpy.props.EnumProperty(name="Lowpoly UV Unwrap", items = autounwrap_enum, description="Select unwrap method for automatic UV unwrapping on final lowpoly mesh", default="none")
 
 bpy.types.Scene.hilo_lowpolymeshsuffix = lowpolymeshsuffix_prop
 bpy.types.Scene.hilo_highpolymeshsuffix = highpolymeshsuffix_prop
+bpy.types.Scene.hilo_autounwrapmode = autounwrap_prop
 bpy.types.Scene.hilo_groupdetectionmode = groupdetectionmode_prop
 bpy.types.Scene.hilo_groupnamepattern = groupnamepattern_prop
 bpy.types.Scene.hilo_outputformat = outputformat_prop
@@ -277,6 +282,13 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_groupdetectionmode", text="")
 
+        # group detection mode
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Lowpoly Auto-Unwrap")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.scene, "hilo_autounwrapmode", text="")
+
         # output format
         row = layout.row()
         rowcol = row.column(align=True)
@@ -405,16 +417,15 @@ class HiloCreateFinalMesh(bpy.types.Operator):
             # uv unwrap lowpoly model
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
-            unwrap_mode = 'smart-unwrap'
+            unwrap_mode = context.scene.hilo_autounwrapmode
             if (unwrap_mode == 'smart-unwrap'):
                 bpy.ops.uv.smart_project(island_margin=0.01)
-            elif (unwrap_mode == 'simple-unwrap'):
+            elif (unwrap_mode == 'unwrap'):
                 bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.1)
-            elif (unwrap_mode == 'cube-projection'):
-                bpy.ops.uv.cube_project(ctx_override)
+            elif (unwrap_mode == 'cube-project'):
+                bpy.ops.uv.cube_project()
             else:
-                self.report({'ERROR', 'Invalid unwrap mode %s' % (unwrap_mode)})
-                return {'FINISHED'}
+                pass # none = No auto-unwrap
             bpy.ops.object.mode_set(mode='OBJECT')
 
             # for each highpoly mesh
