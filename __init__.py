@@ -282,7 +282,14 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_groupdetectionmode", text="")
 
-        # group detection mode
+        # group name pattern
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Group Name Pattern")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.scene, "hilo_groupnamepattern", text="")
+
+        # auto-unwrap mode
         row = layout.row()
         rowcol = row.column(align=True)
         rowcol.label(text="Lowpoly Auto-Unwrap")
