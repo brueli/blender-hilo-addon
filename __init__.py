@@ -124,7 +124,9 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
                 result.append(obj)
         return result
     def isOrigin(self, obj):
-        return obj.name.find(":origin") > -1
+        is_aux_match = not re.search(self.helperPattern(), obj.name) is None
+        is_origin = obj.name.endswith("origin")
+        return is_aux_match and is_origin
     def isLowpolyMesh(self, obj):
         is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
         is_res_match = obj.name.find(self.lowpolymeshsuffix) > -1
