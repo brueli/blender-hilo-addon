@@ -26,6 +26,7 @@ groupdetectionmode_enum = [("mesh-group-by-name", "Mesh-Group-by-name", "Use `Gr
                            ("mesh-group-by-property", "Mesh-Group-by-property", "Use hilo's object properties `Mesh Type` and `Mesh Group` to detect model features.")]
 groupdetectionmode_prop = bpy.props.EnumProperty(name="Mesh Group Detection", items=groupdetectionmode_enum, description="Select a strategy to detect model features (=Blender Objects) which are joined together into a single mesh when final mesh operators are applied.", default='mesh-group-by-name')
 groupnamepattern_prop = bpy.props.StringProperty(name="Group Name Pattern", description="Object Naming Pattern for `Detect Mesh-Group-by-object-name`-feature", default="$group$res.*")
+helpernamepattern_prop = bpy.props.StringProperty(name="Helper Object Name Pattern", description="Helper Object Naming Pattern for `Detect Mesh-Group-by-object-name`-feature", default="$group:*")
 outputformat_enum = [("fbx", "Export as .fbx", "Export models in .fbx Format (FBX)"),
                      ("obj", "Export as .obj", "Export models in .obj Format (Wavefront)")]
 outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputformat_enum, description="Selected output format for export operations")
@@ -49,6 +50,7 @@ bpy.types.Scene.hilo_highpolymeshsuffix = highpolymeshsuffix_prop
 bpy.types.Scene.hilo_autounwrapmode = autounwrap_prop
 bpy.types.Scene.hilo_groupdetectionmode = groupdetectionmode_prop
 bpy.types.Scene.hilo_groupnamepattern = groupnamepattern_prop
+bpy.types.Scene.hilo_helpernamepattern = helpernamepattern_prop
 bpy.types.Scene.hilo_outputformat = outputformat_prop
 bpy.types.Scene.hilo_outputpath = outputpath_prop
 bpy.types.Scene.hilo_lowpolyfilename = lowpolyfilename_prop
@@ -78,17 +80,30 @@ class HiloMeshGroupDetectionStrategy:
 class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
     def __init__(self, objects, options):
         self.groupname_pattern = options['name_pattern']         # bpy.context.scene.hilo_groupnamepattern
+        self.helpername_pattern = options['helper_pattern']      # bpy.context.scene.hilo_helpernamepattern
         self.lowpolymeshsuffix = options['lowpolymesh_suffix']   # bpy.context.scene.hilo_lowpolymeshsuffix
         self.highpolymeshsuffix = options['highpolymesh_suffix'] # bpy.context.scene.hilo_highpolymeshsuffix
         return super(HiloDetectMeshGroupByNamePattern, self).__init__(objects, options)
     def groupPattern(self):
         if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
             self.groupname_pattern = '$group$res.*'
-        group_repl = '(\w+)'
-        res_repl = '(%s|%s)' % (self.lowpolymeshsuffix, self.highpolymeshsuffix)
-        dot_repl = '\.'
-        star_repl = '.*?'
-        return self.groupname_pattern.replace('$group', group_repl).replace('$res', res_repl).replace('.', dot_repl).replace('*', star_repl)
+        rep = {"$group": "(\w+)", 
+                "$res": "(%s|%s)" % (self.lowpolymeshsuffix, self.highpolymeshsuffix),
+                ".": "\.",
+                ":": "\:",
+                "*": ".*?"} # define desired replacements here
+        rep = dict((re.escape(k), v) for k, v in rep.items())
+        pattern = re.compile("|".join(rep.keys()))
+        return pattern.sub(lambda m: rep[re.escape(m.group(0))], self.groupname_pattern)
+    def helperPattern(self):
+        rep = {"$group": "(\w+)", 
+                "$res": "(%s|%s)" % (self.lowpolymeshsuffix, self.highpolymeshsuffix),
+                ".": "\.",
+                ":": "\:",
+                "*": ".*?"} # define desired replacements here
+        rep = dict((re.escape(k), v) for k, v in rep.items())
+        pattern = re.compile("|".join(rep.keys()))
+        return pattern.sub(lambda m: rep[re.escape(m.group(0))], self.helpername_pattern)
     def findGroupNames(self):
         result = []
         for obj in self.object_list:
@@ -102,10 +117,10 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
         result = []
         for i_obj in range(0, len(self.object_list)):
             obj = self.object_list[i_obj]
-            is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
             is_group = obj.name.startswith(group)
-            is_aux = obj.name.startswith(group + ':')
-            if ((is_pattern_match and is_group) or is_aux):
+            is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
+            is_aux_match = not re.search(self.helperPattern(), obj.name) is None
+            if (is_group and (is_pattern_match or is_aux_match)):
                 result.append(obj)
         return result
     def isOrigin(self, obj):
@@ -163,6 +178,7 @@ class HiloMeshGroups:
         if (bpy.context.scene.hilo_groupdetectionmode == 'mesh-group-by-name'):
             return HiloDetectMeshGroupByNamePattern(more_objects, {
                 'name_pattern':        bpy.context.scene.hilo_groupnamepattern,
+                'helper_pattern':      bpy.context.scene.hilo_helpernamepattern,
                 'lowpolymesh_suffix':  bpy.context.scene.hilo_lowpolymeshsuffix,
                 'highpolymesh_suffix': bpy.context.scene.hilo_highpolymeshsuffix
                 })
@@ -288,6 +304,13 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol.label(text="Group Name Pattern")
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_groupnamepattern", text="")
+
+        # helper object name pattern
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Helper Object Name Pattern")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.scene, "hilo_helpernamepattern", text="")
 
         # auto-unwrap mode
         row = layout.row()
