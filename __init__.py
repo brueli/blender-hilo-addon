@@ -404,6 +404,7 @@ class HiloCreateFinalMesh(bpy.types.Operator):
                 final_mesh_obj = bpy.data.objects.new(lowpoly_obj.name + ".final", final_mesh)
                 context.scene.objects.link(final_mesh_obj)
                 final_mesh_obj.location = lowpoly_obj.location
+                final_mesh_obj.rotation_euler = lowpoly_obj.rotation_euler.copy()
                 final_meshes.append(final_mesh_obj)
             # join temp objects into lowpoly result
             bpy.ops.object.select_all(action='DESELECT')
@@ -442,7 +443,8 @@ class HiloCreateFinalMesh(bpy.types.Operator):
                 final_mesh = highpoly_obj.to_mesh(scene=context.scene, apply_modifiers=True, settings='PREVIEW')
                 final_mesh_obj = bpy.data.objects.new(highpoly_obj.name + ".final", final_mesh)
                 context.scene.objects.link(final_mesh_obj)
-                final_mesh_obj.location = lowpoly_obj.location
+                final_mesh_obj.location = highpoly_obj.location
+                final_mesh_obj.rotation_euler = highpoly_obj.rotation_euler.copy()
                 final_meshes.append(final_mesh_obj)
             # join temp object into highpoly result
             bpy.ops.object.select_all(action='DESELECT')
