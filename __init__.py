@@ -91,6 +91,7 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
                 "$res": "(%s|%s)" % (self.lowpolymeshsuffix, self.highpolymeshsuffix),
                 ".": "\.",
                 ":": "\:",
+                "_": "_",
                 "*": ".*?"} # define desired replacements here
         rep = dict((re.escape(k), v) for k, v in rep.items())
         pattern = re.compile("|".join(rep.keys()))
@@ -100,6 +101,7 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
                 "$res": "(%s|%s)" % (self.lowpolymeshsuffix, self.highpolymeshsuffix),
                 ".": "\.",
                 ":": "\:",
+                "_": "_",
                 "*": ".*?"} # define desired replacements here
         rep = dict((re.escape(k), v) for k, v in rep.items())
         pattern = re.compile("|".join(rep.keys()))
