@@ -33,6 +33,7 @@ outputformat_prop = bpy.props.EnumProperty(name="Output Format", items=outputfor
 outputpath_prop = bpy.props.StringProperty(name="Output Directory", description="Stores the output directory path used for export", default="//")
 lowpolyfilename_prop = bpy.props.StringProperty(name="Lowpoly Filename", description="Lowpoly model filename", default="mymodel_low")
 highpolyfilename_prop = bpy.props.StringProperty(name="Highpoly Filename", description="Highpoly model filename", default="mymodel_high")
+cagefilename_prop = bpy.props.StringProperty(name="Cage Filename (if any)", description="Cage model filename. A cage file is only created if there are any cage objects defined.", default="mymodel_cage")
 meshtype_enum = [("ignore", "Ignore", "Ignore mesh in lowpoly and highpoly model"),
                  ("lowpoly", "Lowpoly Mesh", "Use mesh for lowpoly model"),
                  ("highpoly", "Highpoly Mesh", "Use mesh for highpoly model"),
@@ -55,6 +56,7 @@ bpy.types.Scene.hilo_outputformat = outputformat_prop
 bpy.types.Scene.hilo_outputpath = outputpath_prop
 bpy.types.Scene.hilo_lowpolyfilename = lowpolyfilename_prop
 bpy.types.Scene.hilo_highpolyfilename = highpolyfilename_prop
+bpy.types.Scene.hilo_cagefilename = cagefilename_prop
 
 # object properties are used by the `Detect Mesh-Group-by-property`-feature to determine the mesh/object usage
 bpy.types.Object.hilo_meshtype = meshtype_prop   # object type: 'lowpoly', 'highpoly', 'origin' or 'ignore'
@@ -89,20 +91,24 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
             self.groupname_pattern = '$group$res.*'
         rep = {"$group": "(\w+)", 
                 "$res": "(%s|%s)" % (self.lowpolymeshsuffix, self.highpolymeshsuffix),
-                ".": "\.",
-                ":": "\:",
-                "_": "_",
+                ".": re.escape("."),
+                ":": re.escape(":"),
+                "_": re.escape("_"),
                 "*": ".*?"} # define desired replacements here
         rep = dict((re.escape(k), v) for k, v in rep.items())
         pattern = re.compile("|".join(rep.keys()))
         return pattern.sub(lambda m: rep[re.escape(m.group(0))], self.groupname_pattern)
-    def helperPattern(self):
+    def helperPattern(self, helper_name=None):
+        if (helper_name is None): 
+            helper_repl = ".*?"
+        else: 
+            helper_repl = re.escape(helper_name)
         rep = {"$group": "(\w+)", 
-                "$res": "(%s|%s)" % (self.lowpolymeshsuffix, self.highpolymeshsuffix),
-                ".": "\.",
-                ":": "\:",
-                "_": "_",
-                "*": ".*?"} # define desired replacements here
+                "$res": "(%s|%s)" % (re.escape(self.lowpolymeshsuffix), re.escape(self.highpolymeshsuffix)),
+                ".": re.escape("."),
+                ":": re.escape(":"),
+                "_": re.escape("_"),
+                "*": helper_repl } # define desired replacements here
         rep = dict((re.escape(k), v) for k, v in rep.items())
         pattern = re.compile("|".join(rep.keys()))
         return pattern.sub(lambda m: rep[re.escape(m.group(0))], self.helpername_pattern)
@@ -126,9 +132,11 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
                 result.append(obj)
         return result
     def isOrigin(self, obj):
-        is_aux_match = not re.search(self.helperPattern(), obj.name) is None
-        is_origin = obj.name.endswith("origin")
-        return is_aux_match and is_origin
+        is_match = not re.search(self.helperPattern("origin"), obj.name) is None
+        return is_match
+    def isCage(self, obj):
+        is_match = not re.search(self.helperPattern("cage"), obj.name) is None
+        return is_match
     def isLowpolyMesh(self, obj):
         is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
         is_res_match = obj.name.find(self.lowpolymeshsuffix) > -1
@@ -224,6 +232,14 @@ class HiloMeshGroups:
             if (mg.isOrigin(self.object_list[i_obj])):
                 return self.object_list[i_obj].location
         return bpy.context.scene.cursor_location
+    def getCage(self, group):
+        mg = self.getMeshGroupDetector([])
+        if (type(group)==str):
+            group = self.group_names.index(group)
+        for i_obj in self.groups[group]:
+            if (mg.isCage(self.object_list[i_obj])):
+                return self.object_list[i_obj]
+        return None
     def getLowpolyMeshes(self, group):
         mg = self.getMeshGroupDetector([])
         result = []
@@ -490,6 +506,33 @@ class HiloCreateFinalMesh(bpy.types.Operator):
             context.scene.objects.active = highpoly_result
             bpy.ops.objects.hilosetobjectorigintocursor()
 
+            # get cage mesh for group (if there is one specified)
+            cage_obj = groups.getCage(i_group)
+            if (not cage_obj is None):
+                # create cage result object
+                bpy.ops.object.add(type='MESH')
+                cage_result = context.active_object
+                # duplicate mesh and apply modifiers
+                final_mesh = cage_obj.to_mesh(scene=context.scene, apply_modifiers=True, settings='PREVIEW')
+                final_mesh_obj = bpy.data.objects.new(cage_obj.name + ".final", final_mesh)
+                context.scene.objects.link(final_mesh_obj)
+                final_mesh_obj.location = cage_obj.location
+                final_mesh_obj.rotation_euler = cage_obj.rotation_euler.copy()
+                # join temp object into cage result
+                bpy.ops.object.select_all(action='DESELECT')
+                final_mesh_obj.select = True
+                cage_result.select = True
+                context.scene.objects.active = cage_result
+                bpy.ops.object.join()
+                # rename cage result
+                cage_result.name = groups.group_names[i_group] + "_cage"
+                # update scene
+                context.scene.update()
+                # move to group origin
+                context.scene.cursor_location = groups.getOrigin(i_group)
+                context.scene.objects.active = cage_result
+                bpy.ops.objects.hilosetobjectorigintocursor()
+
         return {'FINISHED'}
 
 
@@ -513,6 +556,10 @@ class HiloRefreshFinalMesh(bpy.types.Operator):
                     highpoly_final = bpy.data.objects[group_name + '_high']
                     context.scene.objects.unlink(highpoly_final)
                     bpy.data.objects.remove(highpoly_final)
+                if (bpy.data.objects.find(group_name + '_cage') > -1):
+                    cage_final = bpy.data.objects[group_name + '_cage']
+                    context.scene.objects.unlink(cage_final)
+                    bpy.data.objects.remove(cage_final)
         # recreate lowpoly meshes
         bpy.ops.objects.hilocreatefinalmesh()
         return {'FINISHED'}
@@ -537,7 +584,7 @@ class HiloExportMeshes(bpy.types.Operator):
             bpy.data.objects[lowpoly_name].select = True
 
         # export selected objects as .fbx
-        self.report({'INFO'}, "  export to .fbx file")
+        self.report({'INFO'}, "  export lowpoly to .fbx file")
         exportFilepath = bpy.path.abspath(context.scene.hilo_outputpath + context.scene.hilo_lowpolyfilename + ".fbx")
         bpy.ops.export_scene.fbx(filepath=exportFilepath, 
                                  check_existing=False, 
@@ -558,8 +605,29 @@ class HiloExportMeshes(bpy.types.Operator):
             bpy.data.objects[highpoly_name].select = True
 
         # export selected objects as .fbx
-        self.report({'INFO'}, "  export to .fbx file")
+        self.report({'INFO'}, "  export highpoly to .fbx file")
         exportFilepath = bpy.path.abspath(context.scene.hilo_outputpath + context.scene.hilo_highpolyfilename + ".fbx")
+        bpy.ops.export_scene.fbx(filepath=exportFilepath, 
+                                 check_existing=False, 
+                                 use_selection=True, 
+                                 object_types={'MESH'}, 
+                                 use_mesh_modifiers=True, 
+                                 bake_anim=False, 
+                                 batch_mode='OFF')
+
+        # select cage meshes
+        bpy.ops.object.select_all(action='DESELECT')
+        for i_group in range(0, groups.groupCount()):
+            group_name = groups.group_names[i_group]
+            cage_name = group_name + '_cage'
+            if (bpy.data.objects.find(cage_name) == -1):
+                pass
+            else:
+                bpy.data.objects[cage_name].select = True
+
+        # export selected objects as .fbx
+        self.report({'INFO'}, "  export cage to .fbx file")
+        export_filepath = bpy.path.abspath(context.scene.hilo_outputpath + context.scene.hilo_cagefilename + ".fbx")
         bpy.ops.export_scene.fbx(filepath=exportFilepath, 
                                  check_existing=False, 
                                  use_selection=True, 
