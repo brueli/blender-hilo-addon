@@ -383,19 +383,16 @@ class HiloCreateFinalMesh(bpy.types.Operator):
         # find mesh groups in scene
         groups = HiloMeshGroups(context.scene.objects.values())
 
-        # create lowpoly result object
-        bpy.ops.object.add(type='MESH')
-        lowpoly_result = context.active_object
-        
-        # create highpoly result object
-        bpy.ops.object.add(type='MESH')
-        highpoly_result = context.active_object
-        
         # update scene
         context.scene.update()
         
         # for each group:
         for i_group in range(0, groups.groupCount()):
+
+            # create lowpoly result object
+            bpy.ops.object.add(type='MESH')
+            lowpoly_result = context.active_object
+
             # for each lowpoly mesh in group
             final_meshes = []
             for lowpoly_obj in groups.getLowpolyMeshes(i_group):
@@ -435,6 +432,10 @@ class HiloCreateFinalMesh(bpy.types.Operator):
             else:
                 pass # none = No auto-unwrap
             bpy.ops.object.mode_set(mode='OBJECT')
+
+            # create highpoly result object
+            bpy.ops.object.add(type='MESH')
+            highpoly_result = context.active_object
 
             # for each highpoly mesh
             final_meshes = []
