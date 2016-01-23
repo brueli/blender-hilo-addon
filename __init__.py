@@ -371,6 +371,13 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.prop(context.scene, "hilo_highpolyfilename", text="")
 
+        # cage filename
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Cage Filename")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.scene, "hilo_cagefilename", text="")
+
         # create final mesh button
         row = layout.row()
         rowcol = row.column(align=True)
