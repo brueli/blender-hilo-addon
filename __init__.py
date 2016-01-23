@@ -86,11 +86,15 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
         self.lowpolymeshsuffix = options['lowpolymesh_suffix']   # bpy.context.scene.hilo_lowpolymeshsuffix
         self.highpolymeshsuffix = options['highpolymesh_suffix'] # bpy.context.scene.hilo_highpolymeshsuffix
         return super(HiloDetectMeshGroupByNamePattern, self).__init__(objects, options)
-    def groupPattern(self):
+    def groupPattern(self, group_name=None):
         if ((self.groupname_pattern is None) or (self.groupname_pattern == '')):
             self.groupname_pattern = '$group$res.*'
-        rep = {"$group": "(\w+)", 
-                "$res": "(%s|%s)" % (self.lowpolymeshsuffix, self.highpolymeshsuffix),
+        if (group_name is None):
+            group_repl = "(\w+)"
+        else:
+            group_repl = re.escape(group_name)
+        rep = {"$group": group_repl, 
+                "$res": "(%s|%s)" % (re.escape(self.lowpolymeshsuffix), re.escape(self.highpolymeshsuffix)),
                 ".": re.escape("."),
                 ":": re.escape(":"),
                 "_": re.escape("_"),
@@ -98,13 +102,16 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
         rep = dict((re.escape(k), v) for k, v in rep.items())
         pattern = re.compile("|".join(rep.keys()))
         return pattern.sub(lambda m: rep[re.escape(m.group(0))], self.groupname_pattern)
-    def helperPattern(self, helper_name=None):
+    def helperPattern(self, group_name=None, helper_name=None):
+        if (group_name is None):
+            group_repl = "(\w+)"
+        else:
+            group_repl = re.escape(group_name)
         if (helper_name is None): 
             helper_repl = ".*?"
         else: 
             helper_repl = re.escape(helper_name)
-        rep = {"$group": "(\w+)", 
-                "$res": "(%s|%s)" % (re.escape(self.lowpolymeshsuffix), re.escape(self.highpolymeshsuffix)),
+        rep = {"$group": group_repl, 
                 ".": re.escape("."),
                 ":": re.escape(":"),
                 "_": re.escape("_"),
@@ -125,17 +132,16 @@ class HiloDetectMeshGroupByNamePattern(HiloMeshGroupDetectionStrategy):
         result = []
         for i_obj in range(0, len(self.object_list)):
             obj = self.object_list[i_obj]
-            is_group = obj.name.startswith(group)
-            is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
-            is_aux_match = not re.search(self.helperPattern(), obj.name) is None
-            if (is_group and (is_pattern_match or is_aux_match)):
+            is_pattern_match = not re.search(self.groupPattern(group_name=group), obj.name) is None
+            is_aux_match = not re.search(self.helperPattern(group_name=group), obj.name) is None
+            if (is_pattern_match or is_aux_match):
                 result.append(obj)
         return result
     def isOrigin(self, obj):
-        is_match = not re.search(self.helperPattern("origin"), obj.name) is None
+        is_match = not re.search(self.helperPattern(helper_name="origin"), obj.name) is None
         return is_match
     def isCage(self, obj):
-        is_match = not re.search(self.helperPattern("cage"), obj.name) is None
+        is_match = not re.search(self.helperPattern(helper_name="cage"), obj.name) is None
         return is_match
     def isLowpolyMesh(self, obj):
         is_pattern_match = not re.search(self.groupPattern(), obj.name) is None
