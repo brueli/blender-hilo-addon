@@ -181,13 +181,11 @@ class HiloDetectMeshGroupByProperty(HiloMeshGroupDetectionStrategy):
 
 
 class HiloMeshGroups:
-    def __init__(self, objects=[], name_pattern=None):
+    def __init__(self, objects=[]):
         self.lowpolymeshsuffix = bpy.context.scene.hilo_lowpolymeshsuffix
         self.highpolymeshsuffix = bpy.context.scene.hilo_highpolymeshsuffix
-        if (name_pattern is None):
-            self.groupname_pattern = bpy.context.scene.hilo_groupnamepattern
-        else:
-            self.groupname_pattern = name_pattern
+        self.groupname_pattern = bpy.context.scene.hilo_groupnamepattern
+        self.helpername_pattern = bpy.context.scene.hilo_helpernamepattern
         self.object_list = []
         self.group_names = []
         self.groups = {}
@@ -195,10 +193,10 @@ class HiloMeshGroups:
     def getMeshGroupDetector(self, more_objects):
         if (bpy.context.scene.hilo_groupdetectionmode == 'mesh-group-by-name'):
             return HiloDetectMeshGroupByNamePattern(more_objects, {
-                'name_pattern':        bpy.context.scene.hilo_groupnamepattern,
-                'helper_pattern':      bpy.context.scene.hilo_helpernamepattern,
-                'lowpolymesh_suffix':  bpy.context.scene.hilo_lowpolymeshsuffix,
-                'highpolymesh_suffix': bpy.context.scene.hilo_highpolymeshsuffix
+                'name_pattern':        self.groupname_pattern,
+                'helper_pattern':      self.helpername_pattern,
+                'lowpolymesh_suffix':  self.lowpolymeshsuffix,
+                'highpolymesh_suffix': self.highpolymeshsuffix
                 })
         elif (bpy.context.scene.hilo_groupdetectionmode == 'mesh-group-by-property'):
             return HiloDetectMeshGroupByProperty(more_objects, {})
