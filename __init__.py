@@ -46,6 +46,9 @@ autounwrap_enum = [("none", "None", "No automatic UV unwrap on final lowpoly mes
                    ("unwrap", "Unwrap", "Use default `Unwrap` method for UV unwrap on final lowpoly mesh")]
 autounwrap_prop = bpy.props.EnumProperty(name="Lowpoly UV Unwrap", items = autounwrap_enum, description="Select unwrap method for automatic UV unwrapping on final lowpoly mesh", default="none")
 
+# object properties for auto uv-unwrap
+unwrapMode_prop = bpy.props.EnumProperty(name="UV Unwrap", items = autounwrap_enum, description="Select unwrap method for this object", default="none")
+unwrapCubeScale_prop = bpy.props.FloatProperty(name="Cube Scale", description="Set the cube size for ('Cube Projection' unwrap-mode only)", default=1.0)
 bpy.types.Scene.hilo_lowpolymeshsuffix = lowpolymeshsuffix_prop
 bpy.types.Scene.hilo_highpolymeshsuffix = highpolymeshsuffix_prop
 bpy.types.Scene.hilo_autounwrapmode = autounwrap_prop
@@ -59,6 +62,8 @@ bpy.types.Scene.hilo_highpolyfilename = highpolyfilename_prop
 bpy.types.Scene.hilo_cagefilename = cagefilename_prop
 
 # object properties are used by the `Detect Mesh-Group-by-property`-feature to determine the mesh/object usage
+bpy.types.Object.hilo_unwrapMode = unwrapMode_prop
+bpy.types.Object.hilo_unwrapCubeScale = unwrapCubeScale_prop
 bpy.types.Object.hilo_meshtype = meshtype_prop   # object type: 'lowpoly', 'highpoly', 'origin' or 'ignore'
 bpy.types.Object.hilo_meshgroup = meshgroup_prop # name of the mesh group this object belongs to
 
@@ -275,6 +280,20 @@ class HiloMeshToolObjectPanel(bpy.types.Panel):
 
         layout = self.layout
 
+        # set unwrap mode
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Unwrap Mode")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.object, "hilo_unwrapMode", text="")
+
+        # set cube scale
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Cube Scale")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.object, "hilo_unwrapCubeScale", text="")
+
         # set mesh type
         row = layout.row()
         rowcol = row.column(align=True)
@@ -387,6 +406,69 @@ class HiloMeshToolScenePanel(bpy.types.Panel):
         rowcol = row.column(align=True)
         rowcol.operator("objects.hilorefreshfinalmesh", text="Regenerate Final Meshes")
         rowcol.operator("objects.hiloexportfinalmesh", text="Export Final Meshes")
+
+
+class HiloCopyUnwrapSettingsToSelected(bpy.types.Operator)  :
+    '''Copy unwrap settings from active object to all selected objects'''
+    bl_idname = "objects.hilocopyunwrapsettingstoselected"
+    bl_label = "Copy unwrap settings from active object to all selected objects"
+
+    def execute(self, context):
+        # the active and selected objects
+        active_obj = context.active_object
+        selected_objects = context.selected_objects
+        # report progress
+        self.report({'INFO'}, 'copying unwrap settings from `%s`...' % (active_obj.name))
+        # loop through selected objects
+        for selected_obj in selected_objects:
+            # copy unwrap settings from active
+            selected_obj.hilo_unwrapMode = active_obj.hilo_unwrapMode
+            selected_obj.hilo_unwrapCubeScale = active_obj.hilo_unwrapCubeScale
+            # report progress
+            self.report({'INFO'}, '  ... to `%s`' % (selected_obj.name))
+        return {'FINISHED'}
+
+
+class HiloUnwrapSelectedObjects(bpy.types.Operator):
+    '''Unwrap all selected objects, according to their unwrap mode'''
+    bl_idname = "objects.hilounwrapselectedobjects"
+    bl_label = "Unwrap all selected objects"
+
+    def execute(self, context):
+        # get the selected objects
+        selected_objects = context.selected_objects
+        # report progress
+        self.report({'INFO'}, 'uv unwrapping `%d` objects' % (len(selected_objects)))
+        # ensure object mode
+        if (not context.edit_object is None):
+            bpy.ops.object.editmode_toggle()
+        # unselect all objects
+        bpy.ops.object.select_all(action='DESELECT')
+        # loop objects
+        for selected_obj in selected_objects:
+            # skip object if unwrap mode is 'None'
+            if (selected_obj.hilo_unwrapMode == 'none'):
+                self.report({'INFO'}, '  uv unwrap `%s`: skip' % (selected_obj.name))
+                continue
+            # switch object to edit mode
+            context.scene.objects.active = selected_obj
+            selected_obj.select = True
+            bpy.ops.object.editmode_toggle()
+            # select all vertices
+            bpy.ops.mesh.select_all(action='SELECT')
+            # unwrap current object
+            if (selected_obj.hilo_unwrapMode == 'cube-project'):
+                op_result = bpy.ops.uv.cube_project(cube_size=selected_obj.hilo_unwrapCubeScale, correct_aspect=True, clip_to_bounds=False, scale_to_bounds=False)
+                if (op_result == {'FINISHED'}):
+                    self.report({'INFO'}, '  uv unwrap `%s`: cube projection (scale=%.2f) successful' % (selected_obj.name, selected_obj.hilo_unwrapCubeScale))
+                else:
+                    self.report({'ERROR'}, '  uv unwrap `%s`: cube projection (scale=%.2f) failed' % (selected_obj.name, selected_obj.hilo_unwrapCubeScale))
+            # switch back to object mode
+            bpy.ops.object.editmode_toggle()
+            # deselect object
+            selected_obj.select = False
+        # return success
+        return {'FINISHED'}
 
 
 class HiloSetObjectOriginToCursor(bpy.types.Operator):
@@ -655,24 +737,28 @@ class HiloExportMeshes(bpy.types.Operator):
 # when blender executes the script as addon, `__name__` is "__main__"
 def register():
     # panels
-    bpy.utils.register_class(HiloMeshToolObjectPanel);
-    bpy.utils.register_class(HiloMeshToolScenePanel);
+    bpy.utils.register_class(HiloMeshToolObjectPanel)
+    bpy.utils.register_class(HiloMeshToolScenePanel)
     # operators
-    bpy.utils.register_class(HiloSetObjectOriginToCursor);
-    bpy.utils.register_class(HiloCreateFinalMesh);
-    bpy.utils.register_class(HiloRefreshFinalMesh);
-    bpy.utils.register_class(HiloExportMeshes);
+    bpy.utils.register_class(HiloUnwrapSelectedObjects)
+    bpy.utils.register_class(HiloCopyUnwrapSettingsToSelected)
+    bpy.utils.register_class(HiloSetObjectOriginToCursor)
+    bpy.utils.register_class(HiloCreateFinalMesh)
+    bpy.utils.register_class(HiloRefreshFinalMesh)
+    bpy.utils.register_class(HiloExportMeshes)
     
 
 def unregister():
     # panels
-    bpy.utils.unregister_class(HiloMeshToolObjectPanel);
-    bpy.utils.unregister_class(HiloMeshToolScenePanel);
+    bpy.utils.unregister_class(HiloMeshToolObjectPanel)
+    bpy.utils.unregister_class(HiloMeshToolScenePanel)
     # operators
-    bpy.utils.unregister_class(HiloSetObjectOriginToCursor);
-    bpy.utils.unregister_class(HiloCreateFinalMesh);
-    bpy.utils.unregister_class(HiloRefreshFinalMesh);
-    bpy.utils.unregister_class(HiloExportMeshes);
+    bpy.utils.unregister_class(HiloUnwrapSelectedObjects)
+    bpy.utils.unregister_class(HiloCopyUnwrapSettingsToSelected)
+    bpy.utils.unregister_class(HiloSetObjectOriginToCursor)
+    bpy.utils.unregister_class(HiloCreateFinalMesh)
+    bpy.utils.unregister_class(HiloRefreshFinalMesh)
+    bpy.utils.unregister_class(HiloExportMeshes)
     
 
 if (__name__ == "__main__"):
