@@ -40,15 +40,24 @@ meshtype_enum = [("ignore", "Ignore", "Ignore mesh in lowpoly and highpoly model
                  ("origin", "Origin", "Use this object's location as origin for the model")]
 meshtype_prop = bpy.props.EnumProperty(name="Mesh Type", items=meshtype_enum, description="Contains the mesh type", default="ignore")
 meshgroup_prop = bpy.props.StringProperty(name="Mesh Group", description="Adds this object to the named Mesh Group when using `Detect Mesh-Group-by-property`-feature", default="")
-autounwrap_enum = [("none", "None", "No automatic UV unwrap on final lowpoly mesh"),
-                   ("smart-unwrap", "Smart Project", "Use `Smart Project` method for UV unwrap on final lowpoly mesh"),
-                   ("cube-project", "Cube Project", "Use `Cube Projection` method for UV unwrap on final lowpoly mesh"),
-                   ("unwrap", "Unwrap", "Use default `Unwrap` method for UV unwrap on final lowpoly mesh")]
+autounwrap_enum = [("none", "None", "No UV unwrap"),
+                   ("smart-unwrap", "Smart Project", "Use `Smart Project` method for UV unwrap"),
+                   ("cube-project", "Cube Project", "Use `Cube Projection` method for UV unwrap"),
+                   ("unwrap", "Angle Based", "Use default `Angle Based Unwrap` method for UV unwrap")]
 autounwrap_prop = bpy.props.EnumProperty(name="Lowpoly UV Unwrap", items = autounwrap_enum, description="Select unwrap method for automatic UV unwrapping on final lowpoly mesh", default="none")
+unwrap_mode_prop = bpy.props.EnumProperty(name="UV Unwrap", items = autounwrap_enum, description="Select unwrap method for this object", default="none")
+unwrap_sharedCorrectAspect_prop = bpy.props.BoolProperty(name="Correct Aspect", description="`Correct Aspect` parameter for `Unwrap` amd `Cube Project` mode", default=True)
+unwrap_sharedMargin_prop = bpy.props.FloatProperty(name="Margin", description="`Margin` parameter for `Unwrap` and `Smart Project` mode", default=0.001)
+unwrap_defaultFillHoles_prop = bpy.props.BoolProperty(name="Fill Holes", description="`Fill Holes` parameter for `Unwrap` mode", default=True)
+unwrap_defaultUseSubsurf_prop = bpy.props.BoolProperty(name="Use Subsurf", description="`Use Subsurf` parameter for `Unwrap` mode", default=False)
+unwrap_cubeScale_prop = bpy.props.FloatProperty(name="Cube Scale", description="`Cube Scale` parameter for 'Cube Projection' mode", default=1.0)
+unwrap_cubeClipToBounds_prop = bpy.props.BoolProperty(name="Clip To Bounds", description="`Clip To Bounds` parameter for `Cube Project` mode", default=False)
+unwrap_cubeScaleToBounds_prop = bpy.props.BoolProperty(name="Scale To Bounds", description="`Scale To Bounds` parameter for `Cube Project` mode", default=False)
+unwrap_smartAngleLimit_prop = bpy.props.FloatProperty(name="Angle Limit", description="`Angle Limit` parameter for `Smart Project` mode", default=66.0)
+unwrap_smartUserAreaWeight_prop = bpy.props.FloatProperty(name="User Area Weight", description="`User Area Weight` parameter for `Smart Project` mode", default=0.0)
+unwrap_smartUseAspect_prop = bpy.props.BoolProperty(name="Use Aspect", description="`Use Aspect` parameter for `Smart Project` mode", default=True)
 
-# object properties for auto uv-unwrap
-unwrapMode_prop = bpy.props.EnumProperty(name="UV Unwrap", items = autounwrap_enum, description="Select unwrap method for this object", default="none")
-unwrapCubeScale_prop = bpy.props.FloatProperty(name="Cube Scale", description="Set the cube size for ('Cube Projection' unwrap-mode only)", default=1.0)
+# properties to store general hilo module settings per-scene
 bpy.types.Scene.hilo_lowpolymeshsuffix = lowpolymeshsuffix_prop
 bpy.types.Scene.hilo_highpolymeshsuffix = highpolymeshsuffix_prop
 bpy.types.Scene.hilo_autounwrapmode = autounwrap_prop
@@ -61,9 +70,22 @@ bpy.types.Scene.hilo_lowpolyfilename = lowpolyfilename_prop
 bpy.types.Scene.hilo_highpolyfilename = highpolyfilename_prop
 bpy.types.Scene.hilo_cagefilename = cagefilename_prop
 
-# object properties are used by the `Detect Mesh-Group-by-property`-feature to determine the mesh/object usage
-bpy.types.Object.hilo_unwrapMode = unwrapMode_prop
-bpy.types.Object.hilo_unwrapCubeScale = unwrapCubeScale_prop
+# properties to store unwrap settings per-object
+# these are used by (hilo) unwrap operators to persist the unwrap settings
+bpy.types.Object.hilo_unwrap_mode = unwrap_mode_prop
+bpy.types.Object.hilo_unwrap_sharedCorrectAspect = unwrap_sharedCorrectAspect_prop
+bpy.types.Object.hilo_unwrap_sharedMargin = unwrap_sharedMargin_prop
+bpy.types.Object.hilo_unwrap_defaultFillHoles = unwrap_defaultFillHoles_prop
+bpy.types.Object.hilo_unwrap_defaultUseSubsurf = unwrap_defaultUseSubsurf_prop
+bpy.types.Object.hilo_unwrap_cubeScale = unwrap_cubeScale_prop
+bpy.types.Object.hilo_unwrap_cubeClipToBounds = unwrap_cubeClipToBounds_prop
+bpy.types.Object.hilo_unwrap_cubeScaleToBounds = unwrap_cubeScaleToBounds_prop
+bpy.types.Object.hilo_unwrap_smartAngleLimit = unwrap_smartAngleLimit_prop
+bpy.types.Object.hilo_unwrap_smartUserAreaWeight = unwrap_smartUserAreaWeight_prop
+bpy.types.Object.hilo_unwrap_smartUseAspect = unwrap_smartUseAspect_prop
+
+# properties to store meshtype and meshgroup per-object
+# these are used by the `Detect Mesh-Group-by-property`-feature to determine the mesh/object usage
 bpy.types.Object.hilo_meshtype = meshtype_prop   # object type: 'lowpoly', 'highpoly', 'origin' or 'ignore'
 bpy.types.Object.hilo_meshgroup = meshgroup_prop # name of the mesh group this object belongs to
 
@@ -267,6 +289,98 @@ class HiloMeshGroups:
         return len(self.group_names)
 
 
+class HiloObjectUnwrapSettingsPanel(bpy.types.Panel):
+    bl_label = "Unwrap Settings"
+    bl_idname = "HiloObjectUnwrapSettingsPanel"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "object"
+
+    def draw(self, context):
+        layout = self.layout
+        # set unwrap mode
+        row = layout.row()
+        rowcol = row.column(align=True)
+        rowcol.label(text="Unwrap Mode")
+        rowcol = row.column(align=True)
+        rowcol.prop(context.object, "hilo_unwrap_mode", text="")
+        if (context.object.hilo_unwrap_mode == 'unwrap'):
+            # set fill holes
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Fill Holes")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_defaultFillHoles", text="")
+            # set correct aspect
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Correct Aspect")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_sharedCorrectAspect", text="")
+            # set use subsurf
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Use Subsurf")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_defaultUseSubsurf", text="")
+            # set margin
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Margin")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_sharedMargin", text="")
+        # cube-project mode:
+        elif (context.object.hilo_unwrap_mode == 'cube-project'):
+            # set cube scale
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Cube Scale")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_cubeScale", text="")
+            # set correct aspect
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Correct Aspect")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_sharedCorrectAspect", text="")
+            # set clip to bounds
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Clip To Bounds")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_cubeClipToBounds", text="")
+            # set scale to bounds
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Scale To Bounds")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_cubeScaleToBounds", text="")
+        # smart-unwrap mode
+        elif (context.object.hilo_unwrap_mode == 'smart-unwrap'):
+            # set angle limit
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Angle Limit")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_smartAngleLimit", text="")
+            # set island margin
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Island Margin")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_sharedMargin", text="")
+            # set user area weight
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="User Area Weight")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_smartUserAreaWeight", text="")
+            # set use aspect
+            row = layout.row()
+            rowcol = row.column(align=True)
+            rowcol.label(text="Use Aspect")
+            rowcol = row.column(align=True)
+            rowcol.prop(context.object, "hilo_unwrap_smartUseAspect", text="")
 
 
 class HiloMeshToolObjectPanel(bpy.types.Panel):
@@ -279,20 +393,6 @@ class HiloMeshToolObjectPanel(bpy.types.Panel):
     def draw(self, context):
 
         layout = self.layout
-
-        # set unwrap mode
-        row = layout.row()
-        rowcol = row.column(align=True)
-        rowcol.label(text="Unwrap Mode")
-        rowcol = row.column(align=True)
-        rowcol.prop(context.object, "hilo_unwrapMode", text="")
-
-        # set cube scale
-        row = layout.row()
-        rowcol = row.column(align=True)
-        rowcol.label(text="Cube Scale")
-        rowcol = row.column(align=True)
-        rowcol.prop(context.object, "hilo_unwrapCubeScale", text="")
 
         # set mesh type
         row = layout.row()
@@ -422,8 +522,8 @@ class HiloCopyUnwrapSettingsToSelected(bpy.types.Operator)  :
         # loop through selected objects
         for selected_obj in selected_objects:
             # copy unwrap settings from active
-            selected_obj.hilo_unwrapMode = active_obj.hilo_unwrapMode
-            selected_obj.hilo_unwrapCubeScale = active_obj.hilo_unwrapCubeScale
+            selected_obj.hilo_unwrap_mode = active_obj.hilo_unwrap_mode
+            selected_obj.hilo_unwrap_cubeScale = active_obj.hilo_unwrap_cubeScale
             # report progress
             self.report({'INFO'}, '  ... to `%s`' % (selected_obj.name))
         return {'FINISHED'}
@@ -447,7 +547,7 @@ class HiloUnwrapSelectedObjects(bpy.types.Operator):
         # loop objects
         for selected_obj in selected_objects:
             # skip object if unwrap mode is 'None'
-            if (selected_obj.hilo_unwrapMode == 'none'):
+            if (selected_obj.hilo_unwrap_mode == 'none'):
                 self.report({'INFO'}, '  uv unwrap `%s`: skip' % (selected_obj.name))
                 continue
             # switch object to edit mode
@@ -457,12 +557,34 @@ class HiloUnwrapSelectedObjects(bpy.types.Operator):
             # select all vertices
             bpy.ops.mesh.select_all(action='SELECT')
             # unwrap current object
-            if (selected_obj.hilo_unwrapMode == 'cube-project'):
-                op_result = bpy.ops.uv.cube_project(cube_size=selected_obj.hilo_unwrapCubeScale, correct_aspect=True, clip_to_bounds=False, scale_to_bounds=False)
+            if (selected_obj.hilo_unwrap_mode == 'unwrap'):
+                op_result = bpy.ops.uv.unwrap(method='ANGLE_BASED',
+                                              fill_holes=selected_obj.hilo_unwrap_defaultFillHoles,
+                                              correct_aspect=selected_obj.hilo_unwrap_sharedCorrectAspect,
+                                              use_subsurf_data=selected_obj.hilo_unwrap_defaultUseSubsurf,
+                                              margin=selected_obj.hilo_unwrap_sharedMargin)
                 if (op_result == {'FINISHED'}):
-                    self.report({'INFO'}, '  uv unwrap `%s`: cube projection (scale=%.2f) successful' % (selected_obj.name, selected_obj.hilo_unwrapCubeScale))
+                    self.report({'INFO'}, '  uv unwrap `%s`: angle-based unwrap successful' % (selected_obj.name))
                 else:
-                    self.report({'ERROR'}, '  uv unwrap `%s`: cube projection (scale=%.2f) failed' % (selected_obj.name, selected_obj.hilo_unwrapCubeScale))
+                    self.report({'ERROR'}, '  uv unwrap `%s`: angle-based unwrap failed' % (selected_obj.name))
+            elif (selected_obj.hilo_unwrap_mode == 'cube-project'):
+                op_result = bpy.ops.uv.cube_project(cube_size=selected_obj.hilo_unwrap_cubeScale, 
+                                                    correct_aspect=selected_obj.hilo_unwrap_sharedCorrectAspect, 
+                                                    clip_to_bounds=selected_obj.hilo_unwrap_cubeClipToBounds, 
+                                                    scale_to_bounds=selected_obj.hilo_unwrap_cubeScaleToBounds)
+                if (op_result == {'FINISHED'}):
+                    self.report({'INFO'}, '  uv unwrap `%s`: cube projection (scale=%.2f) successful' % (selected_obj.name, selected_obj.hilo_unwrap_cubeScale))
+                else:
+                    self.report({'ERROR'}, '  uv unwrap `%s`: cube projection (scale=%.2f) failed' % (selected_obj.name, selected_obj.hilo_unwrap_cubeScale))
+            elif (selected_obj.hilo_unwrap_mode == 'smart-project'):
+                op_result = bpy.ops.uv.smart_project(angle_limit=selected_obj.hilo_unwrap_smartAngleLimit, 
+                                                    island_margin=selected_obj.hilo_unwrap_sharedMargin, 
+                                                    user_area_weight=selected_obj.hilo_unwrap_smartUserAreaWeight, 
+                                                    useAspect=selected_obj.hilo_unwrap_sharedUseAspect)
+                if (op_result == {'FINISHED'}):
+                    self.report({'INFO'}, '  uv unwrap `%s`: smart unwrap (angle_limit=%.2f) successful' % (selected_obj.name, selected_obj.hilo_unwrap_smartAngleLimit))
+                else:
+                    self.report({'ERROR'}, '  uv unwrap `%s`: smart unwrap (angle_limit=%.2f) failed' % (selected_obj.name, selected_obj.hilo_unwrap_smartAngleLimit))
             # switch back to object mode
             bpy.ops.object.editmode_toggle()
             # deselect object
@@ -737,6 +859,7 @@ class HiloExportMeshes(bpy.types.Operator):
 # when blender executes the script as addon, `__name__` is "__main__"
 def register():
     # panels
+    bpy.utils.register_class(HiloObjectUnwrapSettingsPanel)
     bpy.utils.register_class(HiloMeshToolObjectPanel)
     bpy.utils.register_class(HiloMeshToolScenePanel)
     # operators
@@ -750,6 +873,7 @@ def register():
 
 def unregister():
     # panels
+    bpy.utils.unregister_class(HiloObjectUnwrapSettingsPanel)
     bpy.utils.unregister_class(HiloMeshToolObjectPanel)
     bpy.utils.unregister_class(HiloMeshToolScenePanel)
     # operators
