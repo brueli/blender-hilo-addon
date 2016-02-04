@@ -523,7 +523,21 @@ class HiloCopyUnwrapSettingsToSelected(bpy.types.Operator)  :
         for selected_obj in selected_objects:
             # copy unwrap settings from active
             selected_obj.hilo_unwrap_mode = active_obj.hilo_unwrap_mode
-            selected_obj.hilo_unwrap_cubeScale = active_obj.hilo_unwrap_cubeScale
+            if (active_obj.hilo_unwrap_mode == 'unwrap'):
+                selected_obj.hilo_unwrap_defaultFillHoles = active_obj.hilo_unwrap_defaultFillHoles
+                selected_obj.hilo_unwrap_sharedCorrectAspect = active_obj.hilo_unwrap_sharedCorrectAspect
+                selected_obj.hilo_unwrap_defaultUseSubsurf = active_obj.hilo_unwrap_defaultUseSubsurf
+                selected_obj.hilo_unwrap_sharedMargin = active_obj.hilo_unwrap_sharedMargin
+            elif (active_obj.hilo_unwrap_mode == 'cube-project'):
+                selected_obj.hilo_unwrap_cubeScale = active_obj.hilo_unwrap_cubeScale
+                selected_obj.hilo_unwrap_sharedCorrectAspect = active_obj.hilo_unwrap_sharedCorrectAspect
+                selected_obj.hilo_unwrap_cubeClipToBounds = active_obj.hilo_unwrap_cubeClipToBounds
+                selected_obj.hilo_unwrap_cubeScaleToBounds = active_obj.hilo_unwrap_cubeScaleToBounds
+            elif (active_obj.hilo_unwrap_mode == 'smart-project'):
+                selected_obj.hilo_unwrap_smartAngleLimit = active_obj.hilo_unwrap_smartAngleLimit
+                selected_obj.hilo_unwrap_sharedMargin = active_obj.hilo_unwrap_sharedMargin
+                selected_obj.hilo_unwrap_smartUserAreaWeight = active_obj.hilo_unwrap_smartUserAreaWeight
+                selected_obj.hilo_unwrap_smartUseAspect = active_obj.hilo_unwrap_smartUseAspect
             # report progress
             self.report({'INFO'}, '  ... to `%s`' % (selected_obj.name))
         return {'FINISHED'}
